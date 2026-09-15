@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Study Buddies — Cache Warmer</title>
+<meta name="robots" content="noindex">
+<style>
+  body{font-family:"Nunito",Arial,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;background:#F3F7FB;color:#1E2A3A;}
+  h1{font-size:20px;}
+  p{font-size:14px;color:#55677F;}
+  .controls{display:flex;gap:10px;align-items:center;margin:16px 0;flex-wrap:wrap;}
+  button{background:#2F80C4;color:#fff;border:none;border-radius:99px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;}
+  button.stop{background:#C4562F;}
+  button:disabled{opacity:.5;cursor:default;}
+  label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}
+  .bar-wrap{background:#E1E8F0;border-radius:99px;height:14px;overflow:hidden;margin:14px 0 6px;}
+  .bar{background:#2F80C4;height:100%;width:0%;transition:width .2s;}
+  .stats{font-size:13px;font-weight:700;margin-bottom:16px;}
+  .log{background:#fff;border:1px solid #D7E1EC;border-radius:10px;padding:10px 14px;max-height:420px;overflow-y:auto;font-size:12.5px;font-family:monospace;}
+  .log div{padding:3px 0;border-bottom:1px solid #EEF2F7;}
+  .ok{color:#2E8B57;}
+  .fail{color:#C4562F;font-weight:700;}
+  .skip{color:#9AA7B8;}
+</style>
+</head>
+<body>
+<h1>Study Buddies — Cache Warmer (admin only)</h1>
+<p>Not linked from the main app. Bookmark this URL if you want to come back to it.
+Generates (and caches in KV) content for every topic across all four subjects by calling
+your existing <code>/api/content</code> endpoint. Safe to close and re-run any time —
+already-cached topics are skipped unless "Force regenerate" is checked.</p>
+
+<div class="controls">
+  <button id="startBtn" onclick="start()">Generate missing content</button>
+  <button id="stopBtn" class="stop" onclick="stop()" disabled>Stop</button>
+  <label><input type="checkbox" id="forceBox"> Force regenerate everything (use after a prompt change)</label>
+  <label>Concurrency:
+    <select id="concurrency">
+      <option value="1">1 (safest)</option>
+      <option value="2" selected>2</option>
+      <option value="3">3</option>
+    </select>
+  </label>
+</div>
+
+<div class="bar-wrap"><div class="bar" id="bar"></div></div>
+<div class="stats" id="stats">Ready — 230 topics total.</div>
+<div class="log" id="log"></div>
+
+<script>
+const TOPICS = [{"id": "4.1.1", "t": "Cell structure"}, {"id": "4.1.2", "t": "Cell division"}, {"id": "4.1.3", "t": "Transport in cells"}, {"id": "4.2.1", "t": "Principles of organisation"}, {"id": "4.2.2", "t": "Animal tissues, organs and organ systems"}, {"id": "4.2.3", "t": "Plant tissues, organs and systems"}, {"id": "4.3.1", "t": "Communicable diseases"}, {"id": "4.4.1", "t": "Photosynthesis"}, {"id": "4.4.2", "t": "Respiration"}, {"id": "4.5.1", "t": "Homeostasis"}, {"id": "4.5.2", "t": "The human nervous system"}, {"id": "4.5.3", "t": "Hormonal coordination in humans"}, {"id": "4.6.1", "t": "Reproduction"}, {"id": "4.6.2", "t": "Variation and evolution"}, {"id": "4.6.3", "t": "Development of understanding of genetics and evolution"}, {"id": "4.6.4", "t": "Classification of living organisms"}, {"id": "4.7.1", "t": "Adaptations, interdependence and competition"}, {"id": "4.7.2", "t": "Organisation of an ecosystem"}, {"id": "4.7.3", "t": "Biodiversity and human interaction with ecosystems"}, {"id": "5.1.1", "t": "A simple model of the atom, symbols, relative atomic mass, isotopes"}, {"id": "5.1.2", "t": "The periodic table"}, {"id": "5.2.1", "t": "Chemical bonds: ionic, covalent and metallic"}, {"id": "5.2.2", "t": "How bonding and structure relate to properties"}, {"id": "5.2.3", "t": "Structure and bonding of carbon"}, {"id": "5.3.1", "t": "Chemical measurements, conservation of mass, quantitative equations"}, {"id": "5.3.2", "t": "Amount of substance in relation to masses of pure substances"}, {"id": "5.4.1", "t": "Reactivity of metals"}, {"id": "5.4.2", "t": "Reactions of acids"}, {"id": "5.4.3", "t": "Electrolysis"}, {"id": "5.5.1", "t": "Exothermic and endothermic reactions"}, {"id": "5.6.1", "t": "Rate of reaction"}, {"id": "5.6.2", "t": "Reversible reactions and dynamic equilibrium"}, {"id": "5.7.1", "t": "Carbon compounds as fuels and feedstock"}, {"id": "5.8.1", "t": "Purity, formulations and chromatography"}, {"id": "5.8.2", "t": "Identification of common gases"}, {"id": "5.9.1", "t": "Composition and evolution of Earth's atmosphere"}, {"id": "5.9.2", "t": "Carbon dioxide and methane as greenhouse gases"}, {"id": "5.9.3", "t": "Common atmospheric pollutants and their sources"}, {"id": "5.10.1", "t": "Using Earth's resources and obtaining potable water"}, {"id": "5.10.2", "t": "Life cycle assessment and recycling"}, {"id": "6.1.1", "t": "Energy changes in a system, ways energy is stored"}, {"id": "6.1.2", "t": "Conservation and dissipation of energy"}, {"id": "6.1.3", "t": "National and global energy resources"}, {"id": "6.2.1", "t": "Current, potential difference and resistance"}, {"id": "6.2.2", "t": "Series and parallel circuits"}, {"id": "6.2.3", "t": "Domestic uses and safety"}, {"id": "6.2.4", "t": "Energy transfers"}, {"id": "6.3.1", "t": "Changes of state and the particle model"}, {"id": "6.3.2", "t": "Internal energy and energy transfers"}, {"id": "6.3.3", "t": "Particle model and pressure"}, {"id": "6.4.1", "t": "Atoms and isotopes"}, {"id": "6.4.2", "t": "Atoms and nuclear radiation"}, {"id": "6.5.1", "t": "Forces and their interactions"}, {"id": "6.5.2", "t": "Work done and energy transfer"}, {"id": "6.5.3", "t": "Forces and elasticity"}, {"id": "6.5.4", "t": "Forces and motion"}, {"id": "6.5.5", "t": "Momentum (HT only)"}, {"id": "6.6.1", "t": "Waves in air, fluids and solids"}, {"id": "6.6.2", "t": "Electromagnetic waves"}, {"id": "6.7.1", "t": "Permanent and induced magnetism, magnetic forces and fields"}, {"id": "6.7.2", "t": "The motor effect"}, {"id": "RP1", "t": "Observe, draw and label plant and animal cells (light microscope)"}, {"id": "RP2", "t": "Effect of solute concentration on mass of plant tissue (osmosis)"}, {"id": "RP3", "t": "Test food samples for sugars, starch, protein and lipids"}, {"id": "RP4", "t": "Effect of pH on the rate of amylase activity"}, {"id": "RP5", "t": "Effect of light intensity on rate of photosynthesis"}, {"id": "RP6", "t": "Investigate a factor affecting human reaction time"}, {"id": "RP7", "t": "Measure population size in a habitat (sampling techniques)"}, {"id": "RP8", "t": "Prepare a pure, dry sample of a soluble salt"}, {"id": "RP9", "t": "Electrolysis of aqueous solutions using inert electrodes"}, {"id": "RP10", "t": "Temperature changes in reacting solutions"}, {"id": "RP11", "t": "Effect of concentration on rate of reaction"}, {"id": "RP12", "t": "Paper chromatography to separate/identify coloured substances"}, {"id": "RP13", "t": "Analysis and purification of water samples"}, {"id": "RP15", "t": "Factors affecting resistance of electrical circuits"}, {"id": "RP16", "t": "I\u2013V characteristics of circuit elements (lamp, diode, resistor)"}, {"id": "RP17", "t": "Determine densities of regular/irregular solids and liquids"}, {"id": "RP18", "t": "Relationship between force and extension of a spring"}, {"id": "RP19", "t": "Effect of force on acceleration of an object (F=ma)"}, {"id": "RP20", "t": "Frequency, wavelength and speed of waves"}, {"id": "RP21", "t": "Infrared absorption/radiation and surface type"}, {"id": "N1", "t": "Ordering numbers & inequality symbols"}, {"id": "N2", "t": "The four operations & place value"}, {"id": "N3", "t": "Inverse operations & order of operations"}, {"id": "N4", "t": "Primes, factors & multiples (HCF/LCM)"}, {"id": "N5", "t": "Systematic listing & the product rule"}, {"id": "N6", "t": "Powers & roots"}, {"id": "N7", "t": "Indices (integer & fractional)"}, {"id": "N8", "t": "Exact calculations (fractions, \u03c0, surds)"}, {"id": "N9", "t": "Standard form"}, {"id": "N10", "t": "Fractions \u2194 decimals"}, {"id": "N11", "t": "Fractions in ratio problems"}, {"id": "N12", "t": "Fractions & percentages as operators"}, {"id": "N13", "t": "Standard & compound units"}, {"id": "N14", "t": "Estimation & checking calculations"}, {"id": "N15", "t": "Rounding & error intervals"}, {"id": "N16", "t": "Limits of accuracy (bounds)"}, {"id": "A1", "t": "Algebraic notation"}, {"id": "A2", "t": "Substituting into formulae"}, {"id": "A3", "t": "Expressions, equations, identities & inequalities"}, {"id": "A4", "t": "Simplifying & factorising expressions"}, {"id": "A5", "t": "Standard formulae & rearranging (changing the subject)"}, {"id": "A6", "t": "Proof & equivalence of expressions"}, {"id": "A7", "t": "Functions, inverse & composite functions"}, {"id": "A8", "t": "Coordinates in four quadrants"}, {"id": "A9", "t": "Straight-line graphs (y = mx + c)"}, {"id": "A10", "t": "Gradients & intercepts"}, {"id": "A11", "t": "Roots & turning points of quadratics"}, {"id": "A12", "t": "Sketching & interpreting graphs"}, {"id": "A13", "t": "Translating & reflecting graphs"}, {"id": "A14", "t": "Real-life graphs & kinematics graphs"}, {"id": "A15", "t": "Gradients & areas under graphs"}, {"id": "A16", "t": "Equation of a circle & tangents"}, {"id": "A17", "t": "Solving linear equations"}, {"id": "A18", "t": "Solving quadratic equations"}, {"id": "A19", "t": "Simultaneous equations"}, {"id": "A20", "t": "Iteration"}, {"id": "A21", "t": "Forming & solving equations from context"}, {"id": "A22", "t": "Solving & representing inequalities"}, {"id": "A23", "t": "Generating sequences"}, {"id": "A24", "t": "Special sequences (triangular, geometric, Fibonacci)"}, {"id": "A25", "t": "nth term of a sequence"}, {"id": "R1", "t": "Converting units & compound units"}, {"id": "R2", "t": "Scale factors, diagrams & maps"}, {"id": "R3", "t": "Expressing one quantity as a fraction of another"}, {"id": "R4", "t": "Ratio notation"}, {"id": "R5", "t": "Dividing quantities in a given ratio"}, {"id": "R6", "t": "Multiplicative relationships as ratio/fraction"}, {"id": "R7", "t": "Proportion as equality of ratios"}, {"id": "R8", "t": "Ratios, fractions & linear functions"}, {"id": "R9", "t": "Percentages & percentage change"}, {"id": "R10", "t": "Direct & inverse proportion"}, {"id": "R11", "t": "Compound units (speed, density, pressure)"}, {"id": "R12", "t": "Ratio in lengths, areas & volumes"}, {"id": "R13", "t": "Direct/inverse proportion equations"}, {"id": "R14", "t": "Gradient as a rate of change"}, {"id": "R15", "t": "Rate of change on curves (tangents/chords)"}, {"id": "R16", "t": "Growth & decay (compound interest)"}, {"id": "G1", "t": "Geometric terms & notation"}, {"id": "G2", "t": "Ruler & compass constructions, loci"}, {"id": "G3", "t": "Angle facts & angle sum of a triangle"}, {"id": "G4", "t": "Properties of quadrilaterals & triangles"}, {"id": "G5", "t": "Congruence criteria (SSS, SAS, ASA, RHS)"}, {"id": "G6", "t": "Angle proofs (incl. Pythagoras)"}, {"id": "G7", "t": "Congruent & similar shapes (transformations)"}, {"id": "G8", "t": "Combining transformations"}, {"id": "G9", "t": "Circle definitions & parts"}, {"id": "G10", "t": "Circle theorems"}, {"id": "G11", "t": "Geometry on coordinate axes"}, {"id": "G12", "t": "Properties of 3D shapes"}, {"id": "G13", "t": "Plans & elevations"}, {"id": "G14", "t": "Standard units of measure"}, {"id": "G15", "t": "Measuring & bearings"}, {"id": "G16", "t": "Area & volume formulae"}, {"id": "G17", "t": "Circumference & area of a circle"}, {"id": "G18", "t": "Arc length, sector angle & area"}, {"id": "G19", "t": "Congruence & similarity (lengths/areas/volumes)"}, {"id": "G20", "t": "Pythagoras' theorem & trigonometry (right-angled)"}, {"id": "G21", "t": "Exact trig values"}, {"id": "G22", "t": "Sine rule & cosine rule"}, {"id": "G23", "t": "Area of a triangle (\u00bdab sinC)"}, {"id": "G24", "t": "Vectors as 2D translations"}, {"id": "G25", "t": "Vector arithmetic & geometric proof"}, {"id": "P1", "t": "Recording & analysing outcomes (tables, frequency trees)"}, {"id": "P2", "t": "Randomness, fairness & expected outcomes"}, {"id": "P3", "t": "Relative frequency vs theoretical probability"}, {"id": "P4", "t": "Probabilities summing to 1"}, {"id": "P5", "t": "Sample size & theoretical probability"}, {"id": "P6", "t": "Systematic listing (tables, grids, Venn, tree diagrams)"}, {"id": "P7", "t": "Possibility spaces & theoretical probability"}, {"id": "P8", "t": "Independent & dependent combined events"}, {"id": "P9", "t": "Conditional probability"}, {"id": "S1", "t": "Sampling & inferring about populations"}, {"id": "S2", "t": "Tables, charts & diagrams for data"}, {"id": "S3", "t": "Histograms & cumulative frequency"}, {"id": "S4", "t": "Central tendency & spread (incl. box plots, quartiles)"}, {"id": "S5", "t": "Describing a population statistically"}, {"id": "S6", "t": "Scatter graphs & correlation"}, {"id": "EL-F1", "t": "Reading unseen 19th-century fiction"}, {"id": "EL-F2", "t": "Critical reading: themes, evidence & evaluation"}, {"id": "EL-F3", "t": "Summarising a single fiction text"}, {"id": "EL-F4", "t": "Analysing vocabulary, form & structure (fiction)"}, {"id": "EL-F5", "t": "Imaginative writing: narrative & description"}, {"id": "EL-F6", "t": "Writing for impact: language & rhetorical devices"}, {"id": "EL-N1", "t": "Reading unseen 20th/21st-century non-fiction"}, {"id": "EL-N2", "t": "Critical reading: bias, evidence & viewpoint"}, {"id": "EL-N3", "t": "Summarising & synthesising across two texts"}, {"id": "EL-N4", "t": "Comparing non-fiction texts"}, {"id": "EL-N5", "t": "Analysing vocabulary, form & structure (non-fiction)"}, {"id": "EL-N6", "t": "Transactional writing: article, letter & review"}, {"id": "EL-N7", "t": "Transactional writing: speech & guide/leaflet"}, {"id": "EL-S1", "t": "Presenting: structure, register & purpose"}, {"id": "EL-S2", "t": "Responding to questions & feedback"}, {"id": "EL-S3", "t": "Listening & responding to others' talk"}, {"id": "MAC1", "t": "Plot & structure overview"}, {"id": "MAC2", "t": "Character: Macbeth"}, {"id": "MAC3", "t": "Character: Lady Macbeth"}, {"id": "MAC4", "t": "Themes: ambition, power & guilt"}, {"id": "MAC5", "t": "Themes: the supernatural & fate"}, {"id": "MAC6", "t": "Shakespeare's language & dramatic technique"}, {"id": "MAC7", "t": "Context: Jacobean drama & regicide"}, {"id": "AIC1", "t": "Plot & dramatic structure"}, {"id": "AIC2", "t": "Character: Inspector Goole"}, {"id": "AIC3", "t": "Character: the Birling family"}, {"id": "AIC4", "t": "Themes: responsibility & social class"}, {"id": "AIC5", "t": "Themes: age, gender & generational conflict"}, {"id": "AIC6", "t": "Priestley's dramatic techniques (dramatic irony, structure)"}, {"id": "AIC7", "t": "Context: 1912 setting vs 1945 writing"}, {"id": "JH1", "t": "Plot & narrative structure"}, {"id": "JH2", "t": "Character: Dr Jekyll & Mr Hyde (duality)"}, {"id": "JH3", "t": "Character: Mr Utterson & other narrators"}, {"id": "JH4", "t": "Themes: duality of human nature"}, {"id": "JH5", "t": "Themes: science, secrecy & reputation"}, {"id": "JH6", "t": "Stevenson's use of gothic conventions & structure"}, {"id": "JH7", "t": "Context: Victorian society & scientific anxiety"}, {"id": "POEM1", "t": "A Poison Tree \u2013 Blake"}, {"id": "POEM2", "t": "The Destruction of Sennacherib \u2013 Byron"}, {"id": "POEM3", "t": "Extract from The Prelude 'Boating' \u2013 Wordsworth"}, {"id": "POEM4", "t": "The Man He Killed \u2013 Hardy"}, {"id": "POEM5", "t": "Cousin Kate \u2013 Rossetti"}, {"id": "POEM6", "t": "Exposure \u2013 Owen"}, {"id": "POEM7", "t": "The Charge of the Light Brigade \u2013 Tennyson"}, {"id": "POEM8", "t": "Half-caste \u2013 Agard"}, {"id": "POEM9", "t": "Catrin \u2013 Clarke"}, {"id": "POEM10", "t": "War Photographer \u2013 Satyamurti"}, {"id": "POEM11", "t": "Belfast Confetti \u2013 Carson"}, {"id": "POEM12", "t": "The Class Game \u2013 Casey"}, {"id": "POEM13", "t": "Poppies \u2013 Weir"}, {"id": "POEM14", "t": "No Problem \u2013 Zephaniah"}, {"id": "POEM15", "t": "What Were They Like? \u2013 Levertov"}];
+
+let running = false;
+let stopRequested = false;
+
+function logLine(html){
+  const el = document.getElementById("log");
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(done, total){
+  document.getElementById("bar").style.width = Math.round((done/total)*100) + "%";
+}
+
+async function processOne(topic, force){
+  const url = `/api/content?id=${encodeURIComponent(topic.id)}${force ? '&force=1' : ''}`;
+  try{
+    const res = await fetch(url);
+    if(!res.ok){
+      const body = await res.text();
+      return {ok:false, detail:`HTTP ${res.status}: ${body.slice(0,150)}`};
+    }
+    const data = await res.json();
+    if(data && data.error) return {ok:false, detail: data.error};
+    return {ok:true};
+  }catch(e){
+    return {ok:false, detail: e.message};
+  }
+}
+
+async function start(){
+  if(running) return;
+  running = true;
+  stopRequested = false;
+  document.getElementById("startBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = false;
+  document.getElementById("log").innerHTML = "";
+
+  const force = document.getElementById("forceBox").checked;
+  const concurrency = parseInt(document.getElementById("concurrency").value, 10);
+
+  let done = 0, okCount = 0, failCount = 0;
+  const total = TOPICS.length;
+  const queue = TOPICS.slice();
+
+  async function worker(){
+    while(queue.length && !stopRequested){
+      const topic = queue.shift();
+      const result = await processOne(topic, force);
+      done++;
+      if(result.ok){
+        okCount++;
+        logLine(`<span class="ok">✓</span> ${topic.id} — ${topic.t}`);
+      }else{
+        failCount++;
+        logLine(`<span class="fail">✗ ${topic.id} — ${topic.t}: ${result.detail}</span>`);
+      }
+      setProgress(done, total);
+      document.getElementById("stats").textContent =
+        `${done}/${total} processed — ${okCount} ok, ${failCount} failed${stopRequested ? " (stopped)" : ""}`;
+    }
+  }
+
+  const workers = [];
+  for(let i=0;i<concurrency;i++) workers.push(worker());
+  await Promise.all(workers);
+
+  running = false;
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("stopBtn").disabled = true;
+  if(failCount > 0){
+    logLine(`<div><strong>Done with ${failCount} failure(s). Re-run — already-succeeded topics will be skipped unless "Force" is checked.</strong></div>`);
+  }else if(!stopRequested){
+    logLine(`<div><strong>All topics cached successfully.</strong></div>`);
+  }
+}
+
+function stop(){
+  stopRequested = true;
+  document.getElementById("stopBtn").disabled = true;
+}
+</script>
+</body>
+</html>
