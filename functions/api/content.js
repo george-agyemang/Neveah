@@ -541,7 +541,19 @@ export async function onRequestGet(context) {
   try {
     parsed = JSON.parse(clean);
   } catch (e) {
-    return new Response(JSON.stringify({ error: "parse_failed", raw: clean }), {
+    // Pull the character position V8 reports (e.g. "...in JSON at position 452")
+    // and show a window of text around it, so we can see exactly what broke
+    // the parse instead of guessing from a truncated log.
+    const posMatch = /position (\d+)/.exec(e.message || "");
+    const pos = posMatch ? parseInt(posMatch[1], 10) : null;
+    const windowStart = pos !== null ? Math.max(0, pos - 80) : 0;
+    const windowEnd = pos !== null ? Math.min(clean.length, pos + 80) : Math.min(clean.length, 300);
+    return new Response(JSON.stringify({
+      error: "parse_failed",
+      message: e.message,
+      length: clean.length,
+      around_error: clean.slice(windowStart, windowEnd),
+    }), {
       status: 502,
       headers: { "content-type": "application/json" },
     });
