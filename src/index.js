@@ -5,7 +5,7 @@
 //   GET/PUT  /api/progress   shared per-topic status
 //   GET/PUT  /api/plan       shared study-plan settings
 //   GET/PUT  /api/activity   shared activity log
-//   GET      /api/content    AI-generated summary/flashcards/quiz (cached in KV)
+//   GET      /api/content    AI-generated summary/flashcards/quiz/exam question (cached in KV)
 //
 // Requires (set in wrangler.jsonc / dashboard):
 //   - KV namespace bound as PROGRESS_KV
@@ -391,8 +391,16 @@ function findItem(id) {
   return null;
 }
 
+// quiz is now a 15-question POOL — the frontend draws a rotating subset of
+// 10 per attempt so retakes don't just repeat the same set. examQuestion is
+// a single written, exam-style question with a model answer and a checklist
+// of independent mark points the student self-marks against in the app (no
+// extra API calls; generated and cached in the same call as everything else).
 const QUIZ_SCHEMA =
-  '{"summary":"...","keyPoints":["..."],"flashcards":[{"q":"...","a":"..."}],"quiz":[{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}]}';
+  '{"summary":"...","keyPoints":["..."],"flashcards":[{"q":"...","a":"..."}],"quiz":[{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}],"examQuestion":{"question":"...","marks":0,"markPoints":["...","..."],"modelAnswer":"..."}}';
+
+const EXAM_QUESTION_INSTRUCTIONS_DEFAULT = `
+examQuestion must be a single exam-style written question worth 3-6 marks that uses real exam command words (e.g. "Explain", "Describe", "Calculate", "Compare", "Evaluate") rather than multiple choice. marks should equal the number of independent mark points. markPoints must be an array of exactly that many short, independently-creditable points (each point is something a student either does or doesn't include in their answer, mirroring how a real mark scheme awards one mark per distinct valid point) - do not write markPoints as steps that depend on each other. modelAnswer should be a concise, complete answer that would score full marks, written the way a strong GCSE student would write it, so the student can compare their own written answer against it and tick off which markPoints they covered.`;
 
 function buildPrompt(found) {
   const { sub, topic, subject, courseKey } = found;
@@ -403,19 +411,22 @@ function buildPrompt(found) {
       return `You are writing AQA GCSE Combined Science: Trilogy (8464) revision material for required practical "${sub.t}" (${sub.id}).
 Return ONLY valid JSON, no markdown fences, no preamble, matching exactly this schema:
 ${QUIZ_SCHEMA}
-flashcards must have exactly 5 items focused on apparatus, method steps and variables. quiz must have exactly 5 multiple-choice questions (4 options each) testing method, variables and results interpretation, Foundation-tier appropriate. Keep all text concise and strictly based on the official AQA Combined Science Trilogy specification.`;
+flashcards must have exactly 5 items focused on apparatus, method steps and variables. quiz must have exactly 15 multiple-choice questions (4 options each) testing method, variables and results interpretation, Foundation-tier appropriate \u2014 this is a large question bank the app will draw a rotating subset of 10 from each time, so avoid near-duplicate questions and cover the practical from as many distinct angles as you can (apparatus, method steps, variables, hazards, results/calculations, evaluation). Keep all text concise and strictly based on the official AQA Combined Science Trilogy specification.
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT} For this required practical, the examQuestion should ask the student to explain, evaluate or interpret a method/variable/results point (as real AQA practical-based exam questions do), not just recall a step.`;
     }
     return `You are writing AQA GCSE Combined Science: Trilogy (8464) revision material for specification point ${sub.id} "${sub.t}", part of topic ${topic.id} "${topic.title}" in ${subject.label}.
 Return ONLY valid JSON, no markdown fences, no preamble, matching exactly this schema:
 ${QUIZ_SCHEMA}
-flashcards must have exactly 6 items covering key facts, definitions or processes to recall. quiz must have exactly 5 multiple-choice questions (4 options each), mixing recall and application, Foundation-tier appropriate unless a question is explicitly marked (HT). Keep all text concise and strictly within this specification point only.`;
+flashcards must have exactly 6 items covering key facts, definitions or processes to recall. quiz must have exactly 15 multiple-choice questions (4 options each), mixing recall and application, Foundation-tier appropriate unless a question is explicitly marked (HT) \u2014 this is a large question bank the app will draw a rotating subset of 10 from each time, so avoid near-duplicate questions and cover the specification point from as many distinct angles as you can. Keep all text concise and strictly within this specification point only.
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT} Model the examQuestion on real AQA-style demand for this topic: prefer "Explain why/how..." or "Describe..." questions that require linking two pieces of science together (e.g. structure to function, cause to effect) rather than a single recalled fact, since that is what AQA's levels-based mark schemes actually reward. If this specification point has a standard calculation associated with it, you may instead set examQuestion to a calculation question, with markPoints covering each method step and the correct final answer with units.`;
   }
 
   if (courseKey === "maths") {
     return `You are writing AQA GCSE Mathematics (8300) revision material for specification reference ${sub.id} "${sub.t}", part of ${topic.id} "${topic.title}" in ${subject.label}.
 Return ONLY valid JSON, no markdown fences, no preamble, matching exactly this schema:
 ${QUIZ_SCHEMA}
-The summary should explain the method in plain steps a GCSE student can follow, noting clearly if part of it is Higher-tier only. keyPoints should be 4-6 short bullets including any key formula (written in plain text, e.g. "x = (-b \u00b1 \u221a(b\u00b2-4ac)) / 2a"). flashcards must have exactly 6 items testing definitions, formulae or a short worked step. quiz must have exactly 5 questions: prefer numeric-answer style questions (put the correct numeric answer as one of the 4 "options" alongside 3 plausible wrong answers a student might get from a common error, e.g. a sign mistake or a misapplied formula) and give the full worked method in the explanation. Keep everything Foundation-tier appropriate unless explicitly marked (Higher tier).`;
+The summary should explain the method in plain steps a GCSE student can follow, noting clearly if part of it is Higher-tier only. keyPoints should be 4-6 short bullets including any key formula (written in plain text, e.g. "x = (-b \u00b1 \u221a(b\u00b2-4ac)) / 2a"). flashcards must have exactly 6 items testing definitions, formulae or a short worked step. quiz must have exactly 15 questions: prefer numeric-answer style questions (put the correct numeric answer as one of the 4 "options" alongside 3 plausible wrong answers a student might get from a common error, e.g. a sign mistake or a misapplied formula) and give the full worked method in the explanation \u2014 this is a large question bank the app will draw a rotating subset of 10 from each time, so vary the numbers used and the type of common error tested across questions rather than repeating the same setup. Keep everything Foundation-tier appropriate unless explicitly marked (Higher tier).
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT} For maths specifically, examQuestion must require full working shown, not just a final answer - markPoints should be the individual method/accuracy marks a real AQA mark scheme would give (e.g. "correct method for substituting values", "correct rearrangement", "correct final answer with correct units"), and modelAnswer must show every working line, not just the result.`;
   }
 
   if (courseKey === "englang") {
@@ -423,7 +434,8 @@ The summary should explain the method in plain steps a GCSE student can follow, 
 This is a SKILLS-based specification, not a text-based one \u2014 do not invent or reference any specific named book, since no set text applies here.
 Return ONLY valid JSON, no markdown fences, no preamble, matching exactly this schema:
 ${QUIZ_SCHEMA}
-The summary should explain what this skill involves and what examiners reward (tie explicitly to the relevant Assessment Objective where useful, e.g. AO1-AO4). keyPoints should be 4-6 exam-technique bullets (e.g. specific techniques, structural devices, or planning steps). flashcards must have exactly 6 items covering key terminology (e.g. rhetorical devices, structural techniques) with a short definition or example as the answer \u2014 do not quote more than a few words from any real text. quiz must have exactly 5 multiple-choice questions (4 options each) testing recognition or application of the skill, with a one-sentence explanation each.`;
+The summary should explain what this skill involves and what examiners reward (tie explicitly to the relevant Assessment Objective where useful, e.g. AO1-AO4). keyPoints should be 4-6 exam-technique bullets (e.g. specific techniques, structural devices, or planning steps). flashcards must have exactly 6 items covering key terminology (e.g. rhetorical devices, structural techniques) with a short definition or example as the answer \u2014 do not quote more than a few words from any real text. quiz must have exactly 15 multiple-choice questions (4 options each) testing recognition or application of the skill, with a one-sentence explanation each \u2014 this is a large question bank the app will draw a rotating subset of 10 from each time, so avoid near-duplicate questions and vary which technique/example each question tests.
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT} For English Language, examQuestion should be a short exam-style writing or analysis task in the real style of this skill area (e.g. "Explain how the writer uses structure to..." or a short creative-writing prompt), worth 4-6 marks tied to the relevant Assessment Objective. markPoints should mirror how examiners actually reward this AO (e.g. "identifies a specific technique", "supports the point with a brief, relevant reference", "explains the effect on the reader"). modelAnswer should be a short model paragraph, not a full essay, written the way a strong GCSE student would write it \u2014 do not invent or reference any specific named text.`;
   }
 
   if (courseKey === "englit") {
@@ -437,14 +449,16 @@ The summary should explain what this skill involves and what examiners reward (t
     return `You are writing Pearson Edexcel GCSE (9-1) English Literature (1ET0) revision material about "${sub.t}", relating to ${workName}.
 Return ONLY valid JSON, no markdown fences, no preamble, matching exactly this schema:
 ${QUIZ_SCHEMA}
-The summary should give a clear, exam-focused explanation of this point (plot/character/theme/technique/context as relevant), written for a GCSE student. keyPoints should be 4-6 exam-focused bullets, and where genuinely useful may include ONE very short textual reference (under 10 words, in quotation marks) per bullet at most \u2014 never quote a full line of poetry or a long passage, paraphrase instead. flashcards must have exactly 6 items testing recall of this specific point \u2014 any quotation used must be under 10 words. quiz must have exactly 5 multiple-choice questions (4 options each) testing understanding of plot, character, theme, technique or context relevant to this point, with a one-sentence explanation each. Keep strictly to what a GCSE student studying this exact text/point needs to know.`;
+The summary should give a clear, exam-focused explanation of this point (plot/character/theme/technique/context as relevant), written for a GCSE student. keyPoints should be 4-6 exam-focused bullets, and where genuinely useful may include ONE very short textual reference (under 10 words, in quotation marks) per bullet at most \u2014 never quote a full line of poetry or a long passage, paraphrase instead. flashcards must have exactly 6 items testing recall of this specific point \u2014 any quotation used must be under 10 words. quiz must have exactly 15 multiple-choice questions (4 options each) testing understanding of plot, character, theme, technique or context relevant to this point, with a one-sentence explanation each \u2014 this is a large question bank the app will draw a rotating subset of 10 from each time, so avoid near-duplicate questions and cover as many distinct angles (plot, character, theme, technique, context) as the point allows. Keep strictly to what a GCSE student studying this exact text/point needs to know.
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT} For English Literature, examQuestion should be a short essay-style question in the real Edexcel style (e.g. "Explore how [X] presents..." or "How does [X] use [technique] to show..."), worth 5-6 marks. markPoints should mirror how examiners reward this (e.g. "makes a clear point about the writer's intent", "supports the point with a short, accurate reference (under 10 words)", "explains the effect on an audience/reader", "links the point to context where relevant"). modelAnswer should be one strong model paragraph (not a full essay) that a GCSE student could learn the structure from \u2014 any quotation in it must be under 10 words.`;
   }
 
   // Fallback (should not normally be reached)
   return `Write concise AQA/Edexcel GCSE revision material for "${sub.t}" (${subject.label}).
 Return ONLY valid JSON matching exactly this schema:
 ${QUIZ_SCHEMA}
-flashcards: exactly 6 items. quiz: exactly 5 multiple-choice questions (4 options each) with explanations.`;
+flashcards: exactly 6 items. quiz: exactly 15 multiple-choice questions (4 options each) with explanations.
+${EXAM_QUESTION_INSTRUCTIONS_DEFAULT}`;
 }
 
 async function handleKV(request, env, key, emptyValue) {
@@ -515,7 +529,7 @@ async function handleContent(request, env) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-5",
-      max_tokens: 1400,
+      max_tokens: 4500,
       system: `You are a precise ${found.courseLabel} GCSE content writer covering ${found.subject.label}. You always respond with ONLY valid JSON matching the requested schema exactly. No markdown code fences. No commentary before or after the JSON. You never reproduce long passages of copyrighted text \u2014 any quotation is under 10 words.`,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -530,6 +544,14 @@ async function handleContent(request, env) {
   }
 
   const data = await apiResp.json();
+
+  if (data.stop_reason === "max_tokens") {
+    return new Response(JSON.stringify({ error: "truncated", detail: "Response hit the max_tokens limit before finishing \u2014 increase max_tokens in src/index.js and retry." }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   const text = (data.content || [])
     .filter((b) => b.type === "text")
     .map((b) => b.text)
@@ -540,7 +562,19 @@ async function handleContent(request, env) {
   try {
     parsed = JSON.parse(clean);
   } catch (e) {
-    return new Response(JSON.stringify({ error: "parse_failed", raw: clean }), {
+    // Pull the character position V8 reports (e.g. "...in JSON at position 452")
+    // and show a window of text around it, so we can see exactly what broke
+    // the parse instead of guessing from a truncated log.
+    const posMatch = /position (\d+)/.exec(e.message || "");
+    const pos = posMatch ? parseInt(posMatch[1], 10) : null;
+    const windowStart = pos !== null ? Math.max(0, pos - 80) : 0;
+    const windowEnd = pos !== null ? Math.min(clean.length, pos + 80) : Math.min(clean.length, 300);
+    return new Response(JSON.stringify({
+      error: "parse_failed",
+      message: e.message,
+      length: clean.length,
+      around_error: clean.slice(windowStart, windowEnd),
+    }), {
       status: 502,
       headers: { "content-type": "application/json" },
     });
