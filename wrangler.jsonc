@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "neveah",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "PROGRESS_KV",
+      "id": "f92286e47c5e4b9aa19e4773e9bcb471"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
