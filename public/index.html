@@ -127,6 +127,14 @@
   .activity-bar-col .bar-count{font-size:9.5px;color:var(--ink-soft);font-weight:800;}
   .activity-bar-col .bar-day{font-size:9.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
   .activity-note{font-size:11px;color:var(--ink-soft);font-weight:600;margin-top:8px;line-height:1.5;}
+  .device-breakdown{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;}
+  .device-breakdown-head{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:6px;}
+  .device-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;font-size:12.5px;}
+  .device-row.this-device .device-label{color:var(--blue);}
+  .device-label{font-weight:700;}
+  .device-meta{color:var(--ink-soft);font-weight:600;white-space:nowrap;}
+  .device-rename{margin-top:10px;}
+  .device-rename button{background:none;border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:11.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
 
   .subject{margin-bottom:14px;border:2px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden;}
   .subject-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;user-select:none;}
@@ -725,6 +733,29 @@ let planOpen = false;
 let planSettings = null;
 let activityOpen = false;
 let activityLog = [];
+let deviceId = null, deviceName = null;
+(function initDevice(){
+  try{
+    deviceId = localStorage.getItem("sb_device_id");
+    if(!deviceId){
+      deviceId = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2))).slice(0,8);
+      localStorage.setItem("sb_device_id", deviceId);
+    }
+    deviceName = localStorage.getItem("sb_device_name") || null;
+  }catch(e){
+    // localStorage unavailable (e.g. private browsing) — fall back to a
+    // session-only id so activity logging still works, just not persisted.
+    deviceId = Math.random().toString(36).slice(2,10);
+  }
+})();
+function renameThisDevice(){
+  const current = deviceName || "";
+  const name = window.prompt("Label this device (e.g. \"Neveah's phone\", \"Dad's phone\") so it's easy to recognise in Activity:", current);
+  if(name === null) return;
+  deviceName = name.trim() || null;
+  try{ localStorage.setItem("sb_device_name", deviceName || ""); }catch(e){}
+  renderActivity();
+}
 let collapsedMap = {};
 let currentFilter = "all";
 
@@ -1093,7 +1124,7 @@ async function loadActivityLog(){
 }
 let activitySaveTimer=null;
 function logActivity(id, status, type){
-  activityLog.push({ id, status, type, ts: Date.now() });
+  activityLog.push({ id, status, type, ts: Date.now(), deviceId, deviceName });
   if(activityLog.length > 500) activityLog = activityLog.slice(-500);
   clearTimeout(activitySaveTimer);
   activitySaveTimer = setTimeout(async ()=>{

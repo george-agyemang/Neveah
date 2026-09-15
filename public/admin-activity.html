@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Study Buddies — Activity by Device (admin only)</title>
+<meta name="robots" content="noindex">
+<style>
+  body{font-family:"Nunito",Arial,sans-serif;max-width:640px;margin:30px auto;padding:0 16px;background:#F3F7FB;color:#1E2A3A;}
+  h1{font-size:20px;}
+  p.note{font-size:13.5px;color:#55677F;}
+  button{background:#2F80C4;color:#fff;border:none;border-radius:99px;padding:9px 16px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:16px;}
+  .device-card{background:#fff;border:1px solid #D7E1EC;border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+  .device-card.unknown{border-style:dashed;}
+  .device-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+  .device-name{font-weight:800;font-size:15px;}
+  .device-id{font-size:11px;color:#9AA7B8;font-family:monospace;}
+  .device-meta{font-size:13px;color:#55677F;font-weight:600;}
+  .device-types{font-size:12px;color:#9AA7B8;margin-top:4px;}
+  .empty{color:#9AA7B8;font-size:14px;}
+</style>
+</head>
+<body>
+<h1>Activity by Device (admin only)</h1>
+<p class="note">Not linked from the main app. Shows which devices/browsers have logged activity —
+useful for noticing if the shared link has been used somewhere you don't recognise (e.g. a friend).
+This reads the same <code>/api/activity</code> data the main app writes to; it doesn't affect
+anything or let you edit progress from here.</p>
+
+<button onclick="load()">Refresh</button>
+<div id="out">Loading…</div>
+
+<script>
+async function load(){
+  const out = document.getElementById("out");
+  out.innerHTML = "Loading…";
+  let log;
+  try{
+    const res = await fetch("/api/activity");
+    log = await res.json();
+  }catch(e){
+    out.innerHTML = `<p class="empty">Couldn't load activity data: ${e.message}</p>`;
+    return;
+  }
+  if(!Array.isArray(log) || log.length===0){
+    out.innerHTML = `<p class="empty">No activity logged yet.</p>`;
+    return;
+  }
+
+  const byDevice = {};
+  log.forEach(e=>{
+    const key = e.deviceId || "unknown";
+    if(!byDevice[key]) byDevice[key] = { count:0, lastTs:0, name:null, types:{} };
+    byDevice[key].count++;
+    if(e.ts > byDevice[key].lastTs) byDevice[key].lastTs = e.ts;
+    if(e.deviceName) byDevice[key].name = e.deviceName;
+    const t = e.type || "unknown";
+    byDevice[key].types[t] = (byDevice[key].types[t]||0) + 1;
+  });
+
+  function relTime(ts){
+    if(!ts) return "never";
+    const diffMs = Date.now() - ts;
+    const mins = Math.round(diffMs/60000);
+    if(mins < 1) return "just now";
+    if(mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins/60);
+    if(hrs < 24) return `${hrs}h ago`;
+    const days = Math.round(hrs/24);
+    return `${days}d ago`;
+  }
+
+  const rows = Object.entries(byDevice)
+    .sort((a,b)=>b[1].lastTs - a[1].lastTs)
+    .map(([id,info])=>{
+      const isUnknown = id==="unknown";
+      const label = info.name || (isUnknown ? "Unlabelled / pre-tracking history" : `Device ${id.slice(0,4)}`);
+      const typesStr = Object.entries(info.types).map(([t,c])=>`${c} ${t}`).join(", ");
+      return `<div class="device-card ${isUnknown?'unknown':''}">
+        <div class="device-head">
+          <span class="device-name">${label}</span>
+          <span class="device-id">${id}</span>
+        </div>
+        <div class="device-meta">${info.count} total action${info.count===1?'':'s'} \u00b7 last active ${relTime(info.lastTs)}</div>
+        <div class="device-types">${typesStr}</div>
+      </div>`;
+    }).join("");
+
+  out.innerHTML = rows;
+}
+load();
+</script>
+</body>
+</html>
