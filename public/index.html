@@ -218,6 +218,16 @@
   .quiz-result .msg{font-size:13.5px;color:var(--ink-soft);margin:8px 0 18px;font-weight:700;}
   .quiz-result button{margin:0 5px;border:2px solid var(--line);background:var(--surface);border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:"Nunito",sans-serif;}
   .quiz-result button.primary{background:var(--gold);color:#fff;border-color:var(--gold);}
+  .exam-answer{width:100%;min-height:100px;border:2px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13.5px;font-family:"Nunito",sans-serif;margin-bottom:12px;resize:vertical;box-sizing:border-box;}
+  .exam-model{background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13.5px;}
+  .exam-model .tag{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:6px;}
+  .exam-marks-head{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;}
+  .exam-marklist{list-style:none;margin:0 0 10px;padding:0;}
+  .exam-marklist li{display:flex;align-items:flex-start;gap:8px;border:2px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:7px;font-size:13px;font-weight:600;cursor:pointer;}
+  .exam-marklist li.checked{border-color:var(--good);background:var(--bio-soft);}
+  .exam-check{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex-shrink:0;border:2px solid var(--line);border-radius:6px;font-size:12px;font-weight:800;color:var(--good);margin-top:1px;}
+  .exam-marklist li.checked .exam-check{border-color:var(--good);}
+  .exam-score{font-family:"Baloo 2",sans-serif;font-size:18px;font-weight:700;margin-bottom:10px;}
 
   .paw-confetti{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200;overflow:hidden;}
   .paw-confetti span{position:absolute;top:-30px;font-size:22px;animation:fall 1.6s ease-in forwards;}
@@ -282,6 +292,7 @@
         <button data-tab="summary" class="active">Summary</button>
         <button data-tab="flash">Flashcards</button>
         <button data-tab="quiz">Quiz</button>
+        <button data-tab="exam">Exam Q</button>
       </div>
     </div>
     <div class="modal-body" id="modalBody"></div>
@@ -722,6 +733,7 @@ let modalContent = null;
 let modalTab = "summary";
 let flashIndex = 0, flashFlipped = false;
 let quizIndex = 0, quizAnswers = [];
+let examRevealed = false, examChecked = [], examAnswerText = "";
 
 function allItemIds(){
   const ids = [];
@@ -1169,7 +1181,7 @@ function renderActivity(){
     </div>`;
   }).join("");
 
-  const totalQuiz = activityLog.filter(e=>e.type==="quiz").length;
+  const totalQuiz = activityLog.filter(e=>e.type==="quiz"||e.type==="written").length;
   const totalManual = activityLog.filter(e=>e.type==="manual").length;
 
   el.innerHTML = `
@@ -1178,7 +1190,7 @@ function renderActivity(){
     <div class="activity-bars">${barsHtml}</div>
     <div class="activity-note">
       Bars show distinct topics touched per day over the last 14 days (today highlighted).
-      ${totalQuiz+totalManual>0 ? `${totalQuiz} completed via quiz, ${totalManual} set manually \u2014 quiz completions are the stronger signal of actual studying.` : ''}
+      ${totalQuiz+totalManual>0 ? `${totalQuiz} completed via quiz/exam question, ${totalManual} set manually \u2014 quiz and exam-question completions are the stronger signal of actual studying.` : ''}
     </div>
   `;
 }
@@ -1206,6 +1218,7 @@ function openModal(id){
   modalTab = "summary";
   flashIndex = 0; flashFlipped = false;
   quizIndex = 0; quizAnswers = [];
+  examRevealed = false; examChecked = []; examAnswerText = "";
 
   document.getElementById("modalTitle").textContent = found.sub.t;
   document.getElementById("modalSubcode").textContent = `${found.sub.id} \u2022 ${found.courseLabel} \u2022 ${found.subject.label}`;
@@ -1235,6 +1248,7 @@ function renderModalBody(){
   if(!modalContent) return;
   if(modalTab==="summary") renderSummaryTab();
   else if(modalTab==="flash") renderFlashTab();
+  else if(modalTab==="exam") renderExamTab();
   else renderQuizTab();
 }
 function renderSummaryTab(){
@@ -1320,6 +1334,77 @@ function renderQuizResult(quiz){
   render();
 }
 function retakeQuiz(){ quizIndex=0; quizAnswers=[]; renderQuizTab(); }
+
+function renderExamTab(){
+  const eq = modalContent.examQuestion;
+  if(!eq){ document.getElementById("modalBody").innerHTML = "<p>No exam-style question available.</p>"; return; }
+  const points = eq.markPoints||[];
+  if(examChecked.length !== points.length) examChecked = points.map(()=>false);
+
+  let body = `
+    <div class="quiz-progress">Exam-style question &mdash; ${eq.marks||points.length} marks</div>
+    <p class="quiz-q">${eq.question}</p>
+    <textarea class="exam-answer" placeholder="Write your answer here, like you would in the exam..." oninput="examAnswerText=this.value">${examAnswerText}</textarea>
+  `;
+
+  if(!examRevealed){
+    body += `<button class="quiz-next" onclick="revealExamAnswer()">Reveal model answer &amp; mark points</button>`;
+  } else {
+    const gained = examChecked.filter(Boolean).length;
+    const total = points.length;
+    body += `
+      <div class="exam-model">
+        <span class="tag">Model answer</span>
+        <div>${eq.modelAnswer||""}</div>
+      </div>
+      <div class="exam-marks-head">Tick off what your answer covered:</div>
+      <ul class="exam-marklist">
+        ${points.map((p,i)=>`
+          <li class="${examChecked[i]?'checked':''}" onclick="toggleExamPoint(${i})">
+            <span class="exam-check">${examChecked[i]?'\u2713':''}</span>${p}
+          </li>`).join("")}
+      </ul>
+      <div class="exam-score">${gained} / ${total} mark points</div>
+      <button class="quiz-next" onclick="saveExamMark()">Save my mark</button>
+    `;
+  }
+
+  document.getElementById("modalBody").innerHTML = body;
+}
+function toggleExamPoint(i){
+  examChecked[i] = !examChecked[i];
+  renderExamTab();
+}
+function revealExamAnswer(){
+  examRevealed = true;
+  renderExamTab();
+}
+function saveExamMark(){
+  const eq = modalContent.examQuestion;
+  const points = eq.markPoints||[];
+  const gained = examChecked.filter(Boolean).length;
+  const total = points.length || 1;
+  const pct = Math.round((gained/total)*100);
+  const pass = pct>=80;
+  const id = modalItem.id;
+  state[id].status = pass?1:2;
+  saveState();
+  logActivity(id, state[id].status, "written");
+
+  if(pass) paperConfetti();
+
+  document.getElementById("modalBody").innerHTML = `
+    <div class="quiz-result">
+      <div class="mascot-result">${catFace(pass?"#2F80C4":"#E0994F", pass?"happy":"content", 70)}</div>
+      <div class="score">${gained}/${total}</div>
+      <div class="msg">${pass? "Purr-fect \u2014 marked as covered." : "Marked as needs work \u2014 worth another look."}</div>
+      <button class="primary" onclick="retakeExam()">Try again</button>
+      <button onclick="closeModal()">Done</button>
+    </div>
+  `;
+  render();
+}
+function retakeExam(){ examRevealed=false; examChecked=[]; examAnswerText=""; renderExamTab(); }
 
 (async function init(){
   await loadState();
