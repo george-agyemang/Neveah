@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Buddies</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2F80C4">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Study Buddies">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F1F6FA;
+    --surface:#FFFFFF;
+    --ink:#22374A;
+    --ink-soft:#7C93A8;
+    --line:#DCE6EE;
+
+    --bio:#2FA6A6;      --bio-soft:#DEF3EF;
+    --chem:#5B6FD8;     --chem-soft:#E7E9FB;
+    --phys:#38B6D9;     --phys-soft:#DFF3FA;
+    --prac:#4A6FA5;     --prac-soft:#E4EBF3;
+
+    --weak:#E0994F;     --weak-soft:#FDEEDD;
+    --bad:#E07A6E;      --bad-soft:#FBEAE7;
+    --good:#2FA6A6;
+
+    --gold:#2F80C4;      --gold-soft:#DDEEFA;
+    --radius:18px;
+    --radius-sm:12px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Nunito",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:"Baloo 2","Nunito",sans-serif;}
+  .wrap{max-width:700px;margin:0 auto;padding:20px 16px 90px;}
+
+  .hero{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:var(--surface);
+    border:2px solid var(--line);
+    border-radius:22px;
+    padding:14px 16px;
+    margin-bottom:16px;
+  }
+  .hero .mascot{flex:none;width:58px;height:58px;}
+  .hero .text h1{
+    font-family:"Baloo 2",sans-serif;
+    font-size:21px;
+    font-weight:700;
+    margin:0 0 2px;
+    color:var(--ink);
+  }
+  .hero .text p{margin:0;color:var(--ink-soft);font-size:13px;font-weight:600;}
+
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px;}
+  .sum-card{background:var(--surface);border:2px solid var(--line);border-radius:var(--radius-sm);padding:10px 6px;text-align:center;}
+  .sum-card .pct{font-family:"Baloo 2",sans-serif;font-size:21px;font-weight:700;line-height:1;color:var(--accent, var(--ink));}
+  .sum-card .lbl{font-size:10px;color:var(--ink-soft);margin-top:4px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .sum-card.overall .pct{color:var(--gold);}
+
+  .weak-banner{display:none;background:var(--weak-soft);border:2px solid #F3D3A5;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;font-size:13px;color:#8A5A24;font-weight:600;}
+  .weak-banner.show{display:flex;align-items:center;gap:8px;}
+  .weak-banner b{color:#7A4B1A;}
+  .weak-banner .paw{font-size:16px;}
+
+  .filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .filters button{border:2px solid var(--line);background:var(--surface);color:var(--ink-soft);font-size:12.5px;font-weight:700;padding:6px 13px;border-radius:99px;cursor:pointer;font-family:"Nunito",sans-serif;}
+  .filters button.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+
+  .course-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .course-tabs button{border:2px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:"Baloo 2",sans-serif;}
+  .course-tabs button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .plan-toggle{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;}
+  .plan-toggle button{border:2px solid var(--line);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:99px;cursor:pointer;font-family:"Baloo 2",sans-serif;}
+  .plan-toggle button.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+
+  .plan-panel{display:none;background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;}
+  .plan-panel.show{display:block;}
+  .plan-settings{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+  .plan-field{display:flex;flex-direction:column;gap:4px;}
+  .plan-field label{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .plan-field input{width:64px;border:2px solid var(--line);border-radius:8px;padding:6px 8px;font-size:14px;font-family:"Nunito",sans-serif;font-weight:700;color:var(--ink);}
+  .plan-restart{font-size:11.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;font-weight:700;margin-bottom:6px;}
+
+  .plan-status{font-size:12.5px;color:var(--ink-soft);font-weight:700;margin-bottom:14px;line-height:1.6;}
+  .plan-status b{color:var(--ink);}
+  .plan-overdue{background:var(--bad-soft);border:2px solid #F0C4BC;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;font-size:12.5px;font-weight:700;color:#8A4038;}
+  .plan-overdue button{margin-top:6px;background:var(--ink);color:#fff;border:none;border-radius:99px;padding:6px 12px;font-size:12px;cursor:pointer;}
+
+  .plan-today{background:var(--gold-soft);border:2px solid #BFDDF2;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;}
+  .plan-today h3{font-family:"Baloo 2",sans-serif;font-size:14px;margin:0 0 8px;color:#215D8F;}
+  .plan-today .rest-msg{font-size:13px;font-weight:700;color:#215D8F;}
+  .plan-item{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-top:1px solid #D6E8F5;}
+  .plan-item:first-of-type{border-top:none;}
+  .plan-item .tag{font-size:10.5px;font-weight:800;color:#215D8F;text-transform:uppercase;background:#fff;border-radius:99px;padding:2px 8px;flex:none;}
+  .plan-item .txt{font-size:13px;font-weight:600;color:var(--ink);}
+
+  .plan-weeks{display:flex;flex-direction:column;gap:8px;}
+  .plan-week-card{border:2px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;}
+  .plan-week-card.review{border-color:#F3D9A0;background:var(--gold-soft);}
+  .plan-week-card .wk-head{display:flex;justify-content:space-between;font-size:12.5px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+  .plan-week-card .wk-breakdown{font-size:12px;color:var(--ink-soft);font-weight:600;}
+
+  .activity-panel{display:none;background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;}
+  .activity-panel.show{display:block;}
+  .activity-today{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+  .activity-lastactive{font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-bottom:14px;}
+  .activity-bars{display:flex;align-items:flex-end;gap:5px;height:70px;margin-bottom:6px;}
+  .activity-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;gap:3px;}
+  .activity-bar{width:100%;border-radius:4px 4px 0 0;background:var(--line);min-height:3px;}
+  .activity-bar-col.today .activity-bar{background:var(--gold);}
+  .activity-bar-col .bar-count{font-size:9.5px;color:var(--ink-soft);font-weight:800;}
+  .activity-bar-col .bar-day{font-size:9.5px;color:var(--ink-soft);font-weight:700;margin-top:2px;}
+  .activity-note{font-size:11px;color:var(--ink-soft);font-weight:600;margin-top:8px;line-height:1.5;}
+
+  .subject{margin-bottom:14px;border:2px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden;}
+  .subject-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;user-select:none;}
+  .subject-head .left{display:flex;align-items:center;gap:10px;}
+  .cat-badge{flex:none;width:34px;height:34px;}
+  .subject-head h2{font-family:"Baloo 2",sans-serif;font-size:16.5px;margin:0;font-weight:700;}
+  .subject-head .count{font-size:12px;color:var(--ink-soft);white-space:nowrap;font-weight:700;}
+  .chevron{transition:transform .15s ease;color:var(--ink-soft);font-size:12px;margin-left:8px;}
+  .subject.collapsed .chevron{transform:rotate(-90deg);}
+
+  .progress-track{height:6px;background:var(--line);border-radius:3px;margin:0 14px;}
+  .progress-fill{height:100%;border-radius:3px;transition:width .2s ease;background:var(--accent, var(--gold));}
+
+  .subject-body{padding:6px 14px 12px;}
+  .subject.collapsed .subject-body{display:none;}
+
+  .topic{margin-top:14px;}
+  .topic-title{font-size:11.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px;display:flex;justify-content:space-between;}
+  .item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1.5px dashed var(--line);}
+  .item:first-of-type{border-top:none;}
+  .item.hidden{display:none;}
+
+  .status-btn{flex:none;width:32px;height:32px;border-radius:50%;border:2px solid var(--line);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:transform .1s, border-color .12s, background .12s;}
+  .status-btn:active{transform:scale(0.9);}
+  .status-btn[data-status="1"]{background:var(--bio-soft);border-color:var(--bio);}
+  .status-btn[data-status="2"]{background:var(--weak-soft);border-color:var(--weak);}
+
+  .item-body{flex:1;min-width:0;cursor:pointer;}
+  .item-title{font-size:14px;font-weight:600;}
+  .item-code{color:var(--ink-soft);font-size:11.5px;margin-right:5px;font-weight:700;}
+  .item-arrow{flex:none;color:var(--ink-soft);font-size:14px;}
+
+  footer.hint{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:22px;line-height:1.7;font-weight:600;}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);color:#fff;padding:8px 18px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:50;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(91,70,54,.35);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:var(--surface);width:100%;max-width:700px;max-height:92vh;border-radius:26px 26px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -6px 30px rgba(91,70,54,.2);}
+  @media(min-width:600px){.modal-overlay{align-items:center;} .modal{max-height:85vh;border-radius:26px;}}
+  .modal-head{padding:18px 20px 12px;border-bottom:2px solid var(--line);flex:none;}
+  .modal-head .top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .modal-head h3{font-family:"Baloo 2",sans-serif;font-size:19px;margin:0 0 2px;font-weight:700;}
+  .modal-head .subcode{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .modal-close{flex:none;background:var(--bg);border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;line-height:1;width:32px;height:32px;border-radius:50%;}
+  .modal-tabs{display:flex;gap:4px;margin-top:12px;}
+  .modal-tabs button{flex:1;border:2px solid var(--line);background:var(--bg);color:var(--ink-soft);font-size:12.5px;font-weight:700;padding:7px 4px;border-radius:99px;cursor:pointer;font-family:"Nunito",sans-serif;}
+  .modal-tabs button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .modal-body{padding:18px 20px 22px;overflow-y:auto;flex:1;}
+
+  .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 10px;color:var(--ink-soft);font-size:13.5px;gap:12px;font-weight:700;}
+  .spinner{width:40px;height:40px;animation:bob 1s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
+  .error-box{background:var(--bad-soft);border:2px solid #F0C4BC;border-radius:var(--radius-sm);padding:14px;font-size:13px;color:#8A4038;font-weight:600;}
+  .error-box button{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:99px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+
+  .summary-text{font-size:14.5px;margin:0 0 14px;}
+  .key-points{margin:0 0 6px;padding-left:20px;}
+  .key-points li{margin-bottom:7px;font-size:13.5px;}
+  .regen-link{display:inline-block;margin-top:10px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;text-decoration:underline;font-weight:700;}
+
+  .flash-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .flash-count{font-size:12px;color:var(--ink-soft);font-weight:700;}
+  .flashcard{
+    width:100%;min-height:150px;
+    border:2px solid var(--line);border-radius:20px;
+    background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:22px;cursor:pointer;font-size:15.5px;font-weight:600;
+    position:relative;
+  }
+  .flashcard .tag{position:absolute;top:12px;left:14px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);}
+  .flash-nav{display:flex;gap:10px;}
+  .flash-nav button{border:2px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:"Nunito",sans-serif;}
+
+  .quiz-progress{font-size:12px;color:var(--ink-soft);margin-bottom:10px;font-weight:700;}
+  .quiz-q{font-size:15px;margin:0 0 14px;font-weight:700;}
+  .quiz-opt{display:block;width:100%;text-align:left;border:2px solid var(--line);background:var(--surface);border-radius:14px;padding:11px 14px;margin-bottom:8px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:"Nunito",sans-serif;}
+  .quiz-opt.correct{border-color:var(--good);background:var(--bio-soft);}
+  .quiz-opt.incorrect{border-color:var(--bad);background:var(--bad-soft);}
+  .quiz-opt[disabled]{cursor:default;}
+  .quiz-explain{font-size:13px;color:var(--ink-soft);background:var(--bg);border-radius:var(--radius-sm);padding:11px 14px;margin-top:6px;font-weight:600;}
+  .quiz-next{margin-top:14px;background:var(--gold);color:#fff;border:none;border-radius:99px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:"Nunito",sans-serif;}
+  .quiz-result{text-align:center;padding:16px 10px;}
+  .quiz-result .mascot-result{width:70px;height:70px;margin:0 auto 8px;}
+  .quiz-result .score{font-family:"Baloo 2",sans-serif;font-size:32px;font-weight:700;}
+  .quiz-result .msg{font-size:13.5px;color:var(--ink-soft);margin:8px 0 18px;font-weight:700;}
+  .quiz-result button{margin:0 5px;border:2px solid var(--line);background:var(--surface);border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:"Nunito",sans-serif;}
+  .quiz-result button.primary{background:var(--gold);color:#fff;border-color:var(--gold);}
+
+  .paw-confetti{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200;overflow:hidden;}
+  .paw-confetti span{position:absolute;top:-30px;font-size:22px;animation:fall 1.6s ease-in forwards;}
+  @keyframes fall{
+    0%{transform:translateY(0) rotate(0deg);opacity:1;}
+    100%{transform:translateY(100vh) rotate(200deg);opacity:0;}
+  }
+
+  @media (max-width:420px){ .summary{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="mascot" id="heroMascot"></div>
+    <div class="text">
+      <h1 id="heroTitle">Study Buddies</h1>
+      <p id="heroSubtitle">AQA Combined Science: Trilogy (8464)</p>
+    </div>
+  </div>
+
+  <div class="course-tabs" id="courseTabs"></div>
+
+  <div class="plan-toggle">
+    <button id="planToggleBtn" onclick="togglePlanPanel()">\uD83D\uDCC5 Study Plan</button>
+    <button id="activityToggleBtn" onclick="toggleActivityPanel()">\uD83D\uDCCA Activity</button>
+  </div>
+  <div class="plan-panel" id="planPanel"></div>
+  <div class="activity-panel" id="activityPanel"></div>
+
+  <div class="summary" id="summary"></div>
+  <div class="weak-banner" id="weakBanner"></div>
+
+  <div class="filters">
+    <button data-filter="all" class="active">All topics</button>
+    <button data-filter="0">Not started</button>
+    <button data-filter="1">Covered</button>
+    <button data-filter="2">Needs work</button>
+  </div>
+
+  <div id="subjects"></div>
+
+  <footer class="hint">
+    Tap a paw to set status by hand. Tap a topic name to open its summary, flashcards and quiz.<br>
+    Finishing a quiz updates progress for you &mdash; 80%+ marks it covered, below that flags it as needs another go.<br>
+    Progress is shared with everyone using this link.
+  </footer>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="top-row">
+        <div>
+          <h3 id="modalTitle"></h3>
+          <div class="subcode" id="modalSubcode"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-tabs" id="modalTabs">
+        <button data-tab="summary" class="active">Summary</button>
+        <button data-tab="flash">Flashcards</button>
+        <button data-tab="quiz">Quiz</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function catFace(color, mood, size){
+  size = size || 48;
+  let eyes, mouth;
+  if(mood === "sleepy"){
+    eyes = `<path d="M15 21 q4 3 8 0" stroke="#22374A" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+            <path d="M27 21 q4 3 8 0" stroke="#22374A" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+            <text x="34" y="12" font-size="7" fill="#9DB4C8" font-family="Baloo 2, sans-serif">z</text>
+            <text x="38" y="8" font-size="5" fill="#9DB4C8" font-family="Baloo 2, sans-serif">z</text>`;
+    mouth = `<path d="M22 28 q2 1.5 4 0" stroke="#22374A" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+  }else if(mood === "happy"){
+    eyes = `<path d="M14 19 q4 -7 8 0" stroke="#22374A" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            <path d="M26 19 q4 -7 8 0" stroke="#22374A" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+    mouth = `<path d="M18 27 q6 7 12 0" stroke="#22374A" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  }else{
+    eyes = `<circle cx="17" cy="20" r="2.3" fill="#22374A"/><circle cx="31" cy="20" r="2.3" fill="#22374A"/>`;
+    mouth = `<path d="M21 27 q3 3 6 0" stroke="#22374A" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 15 L13 3 L20 14 Z" fill="${color}"/>
+    <path d="M28 14 L35 3 L40 15 Z" fill="${color}"/>
+    <path d="M10.5 12 L13.5 6 L17 12.5 Z" fill="#fff" opacity=".55"/>
+    <path d="M31 12.5 L34.5 6 L37.5 12 Z" fill="#fff" opacity=".55"/>
+    <circle cx="24" cy="25" r="17" fill="${color}"/>
+    <path d="M17 25 L11 24 M17 26.5 L11 27.5 M31 25 L37 24 M31 26.5 L37 27.5" stroke="#22374A" stroke-width="1.1" stroke-linecap="round" opacity=".5"/>
+    ${eyes}
+    ${mouth}
+  </svg>`;
+}
+
+
+function paperConfetti(){
+  const wrap = document.createElement("div");
+  wrap.className = "paw-confetti";
+  const paws = ["\u{1F43E}","\u{1F63B}","\u2B50","\u{1F41F}"];
+  for(let i=0;i<18;i++){
+    const s = document.createElement("span");
+    s.textContent = paws[Math.floor(Math.random()*paws.length)];
+    s.style.left = Math.random()*100 + "%";
+    s.style.animationDelay = (Math.random()*0.4) + "s";
+    s.style.fontSize = (16 + Math.random()*14) + "px";
+    wrap.appendChild(s);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(()=> wrap.remove(), 2200);
+}
+const COURSES = {
+  science: { label:"Combined Science", order:["bio", "chem", "phys", "prac"], groups:{
+  bio: { label:"Biology", key:"bio", color:"#2FA6A6", topics:[
+      { id:"4.1", title:"Cell biology", subs:[
+        {id:"4.1.1", t:"Cell structure"},
+        {id:"4.1.2", t:"Cell division"},
+        {id:"4.1.3", t:"Transport in cells"}
+      ]},
+      { id:"4.2", title:"Organisation", subs:[
+        {id:"4.2.1", t:"Principles of organisation"},
+        {id:"4.2.2", t:"Animal tissues, organs and organ systems"},
+        {id:"4.2.3", t:"Plant tissues, organs and systems"}
+      ]},
+      { id:"4.3", title:"Infection and response", subs:[
+        {id:"4.3.1", t:"Communicable diseases"}
+      ]},
+      { id:"4.4", title:"Bioenergetics", subs:[
+        {id:"4.4.1", t:"Photosynthesis"},
+        {id:"4.4.2", t:"Respiration"}
+      ]},
+      { id:"4.5", title:"Homeostasis and response", subs:[
+        {id:"4.5.1", t:"Homeostasis"},
+        {id:"4.5.2", t:"The human nervous system"},
+        {id:"4.5.3", t:"Hormonal coordination in humans"}
+      ]},
+      { id:"4.6", title:"Inheritance, variation and evolution", subs:[
+        {id:"4.6.1", t:"Reproduction"},
+        {id:"4.6.2", t:"Variation and evolution"},
+        {id:"4.6.3", t:"Development of understanding of genetics and evolution"},
+        {id:"4.6.4", t:"Classification of living organisms"}
+      ]},
+      { id:"4.7", title:"Ecology", subs:[
+        {id:"4.7.1", t:"Adaptations, interdependence and competition"},
+        {id:"4.7.2", t:"Organisation of an ecosystem"},
+        {id:"4.7.3", t:"Biodiversity and human interaction with ecosystems"}
+      ]}
+    ]},
+  chem: { label:"Chemistry", key:"chem", color:"#5B6FD8", topics:[
+      { id:"5.1", title:"Atomic structure and the periodic table", subs:[
+        {id:"5.1.1", t:"A simple model of the atom, symbols, relative atomic mass, isotopes"},
+        {id:"5.1.2", t:"The periodic table"}
+      ]},
+      { id:"5.2", title:"Bonding, structure and the properties of matter", subs:[
+        {id:"5.2.1", t:"Chemical bonds: ionic, covalent and metallic"},
+        {id:"5.2.2", t:"How bonding and structure relate to properties"},
+        {id:"5.2.3", t:"Structure and bonding of carbon"}
+      ]},
+      { id:"5.3", title:"Quantitative chemistry", subs:[
+        {id:"5.3.1", t:"Chemical measurements, conservation of mass, quantitative equations"},
+        {id:"5.3.2", t:"Amount of substance in relation to masses of pure substances"}
+      ]},
+      { id:"5.4", title:"Chemical changes", subs:[
+        {id:"5.4.1", t:"Reactivity of metals"},
+        {id:"5.4.2", t:"Reactions of acids"},
+        {id:"5.4.3", t:"Electrolysis"}
+      ]},
+      { id:"5.5", title:"Energy changes", subs:[
+        {id:"5.5.1", t:"Exothermic and endothermic reactions"}
+      ]},
+      { id:"5.6", title:"Rate and extent of chemical change", subs:[
+        {id:"5.6.1", t:"Rate of reaction"},
+        {id:"5.6.2", t:"Reversible reactions and dynamic equilibrium"}
+      ]},
+      { id:"5.7", title:"Organic chemistry", subs:[
+        {id:"5.7.1", t:"Carbon compounds as fuels and feedstock"}
+      ]},
+      { id:"5.8", title:"Chemical analysis", subs:[
+        {id:"5.8.1", t:"Purity, formulations and chromatography"},
+        {id:"5.8.2", t:"Identification of common gases"}
+      ]},
+      { id:"5.9", title:"Chemistry of the atmosphere", subs:[
+        {id:"5.9.1", t:"Composition and evolution of Earth's atmosphere"},
+        {id:"5.9.2", t:"Carbon dioxide and methane as greenhouse gases"},
+        {id:"5.9.3", t:"Common atmospheric pollutants and their sources"}
+      ]},
+      { id:"5.10", title:"Using resources", subs:[
+        {id:"5.10.1", t:"Using Earth's resources and obtaining potable water"},
+        {id:"5.10.2", t:"Life cycle assessment and recycling"}
+      ]}
+    ]},
+  phys: { label:"Physics", key:"phys", color:"#38B6D9", topics:[
+      { id:"6.1", title:"Energy", subs:[
+        {id:"6.1.1", t:"Energy changes in a system, ways energy is stored"},
+        {id:"6.1.2", t:"Conservation and dissipation of energy"},
+        {id:"6.1.3", t:"National and global energy resources"}
+      ]},
+      { id:"6.2", title:"Electricity", subs:[
+        {id:"6.2.1", t:"Current, potential difference and resistance"},
+        {id:"6.2.2", t:"Series and parallel circuits"},
+        {id:"6.2.3", t:"Domestic uses and safety"},
+        {id:"6.2.4", t:"Energy transfers"}
+      ]},
+      { id:"6.3", title:"Particle model of matter", subs:[
+        {id:"6.3.1", t:"Changes of state and the particle model"},
+        {id:"6.3.2", t:"Internal energy and energy transfers"},
+        {id:"6.3.3", t:"Particle model and pressure"}
+      ]},
+      { id:"6.4", title:"Atomic structure", subs:[
+        {id:"6.4.1", t:"Atoms and isotopes"},
+        {id:"6.4.2", t:"Atoms and nuclear radiation"}
+      ]},
+      { id:"6.5", title:"Forces", subs:[
+        {id:"6.5.1", t:"Forces and their interactions"},
+        {id:"6.5.2", t:"Work done and energy transfer"},
+        {id:"6.5.3", t:"Forces and elasticity"},
+        {id:"6.5.4", t:"Forces and motion"},
+        {id:"6.5.5", t:"Momentum (HT only)"}
+      ]},
+      { id:"6.6", title:"Waves", subs:[
+        {id:"6.6.1", t:"Waves in air, fluids and solids"},
+        {id:"6.6.2", t:"Electromagnetic waves"}
+      ]},
+      { id:"6.7", title:"Magnetism and electromagnetism", subs:[
+        {id:"6.7.1", t:"Permanent and induced magnetism, magnetic forces and fields"},
+        {id:"6.7.2", t:"The motor effect"}
+      ]}
+    ]},
+  prac: { label:"Required practicals", key:"prac", color:"#4A6FA5", topics:[
+      { id:"RP", title:"20 required practical activities", subs:[
+        {id:"RP1", t:"Observe, draw and label plant and animal cells (light microscope)"},
+        {id:"RP2", t:"Effect of solute concentration on mass of plant tissue (osmosis)"},
+        {id:"RP3", t:"Test food samples for sugars, starch, protein and lipids"},
+        {id:"RP4", t:"Effect of pH on the rate of amylase activity"},
+        {id:"RP5", t:"Effect of light intensity on rate of photosynthesis"},
+        {id:"RP6", t:"Investigate a factor affecting human reaction time"},
+        {id:"RP7", t:"Measure population size in a habitat (sampling techniques)"},
+        {id:"RP8", t:"Prepare a pure, dry sample of a soluble salt"},
+        {id:"RP9", t:"Electrolysis of aqueous solutions using inert electrodes"},
+        {id:"RP10", t:"Temperature changes in reacting solutions"},
+        {id:"RP11", t:"Effect of concentration on rate of reaction"},
+        {id:"RP12", t:"Paper chromatography to separate/identify coloured substances"},
+        {id:"RP13", t:"Analysis and purification of water samples"},
+        {id:"RP15", t:"Factors affecting resistance of electrical circuits"},
+        {id:"RP16", t:"I–V characteristics of circuit elements (lamp, diode, resistor)"},
+        {id:"RP17", t:"Determine densities of regular/irregular solids and liquids"},
+        {id:"RP18", t:"Relationship between force and extension of a spring"},
+        {id:"RP19", t:"Effect of force on acceleration of an object (F=ma)"},
+        {id:"RP20", t:"Frequency, wavelength and speed of waves"},
+        {id:"RP21", t:"Infrared absorption/radiation and surface type"}
+      ]}
+    ]}
+  } },
+  maths: { label:"Maths", order:["number", "algebra", "ratio", "geometry", "probability", "statistics"], groups:{
+  number: { label:"Number", key:"number", color:"#2FA6A6", topics:[
+      { id:"3.1.1", title:"Structure and calculation", subs:[
+        {id:"N1", t:"Ordering numbers & inequality symbols"},
+        {id:"N2", t:"The four operations & place value"},
+        {id:"N3", t:"Inverse operations & order of operations"},
+        {id:"N4", t:"Primes, factors & multiples (HCF/LCM)"},
+        {id:"N5", t:"Systematic listing & the product rule"},
+        {id:"N6", t:"Powers & roots"},
+        {id:"N7", t:"Indices (integer & fractional)"},
+        {id:"N8", t:"Exact calculations (fractions, π, surds)"},
+        {id:"N9", t:"Standard form"}
+      ]},
+      { id:"3.1.2", title:"Fractions, decimals and percentages", subs:[
+        {id:"N10", t:"Fractions ↔ decimals"},
+        {id:"N11", t:"Fractions in ratio problems"},
+        {id:"N12", t:"Fractions & percentages as operators"}
+      ]},
+      { id:"3.1.3", title:"Measures and accuracy", subs:[
+        {id:"N13", t:"Standard & compound units"},
+        {id:"N14", t:"Estimation & checking calculations"},
+        {id:"N15", t:"Rounding & error intervals"},
+        {id:"N16", t:"Limits of accuracy (bounds)"}
+      ]}
+    ]},
+  algebra: { label:"Algebra", key:"algebra", color:"#5B6FD8", topics:[
+      { id:"3.2.1", title:"Notation, vocabulary and manipulation", subs:[
+        {id:"A1", t:"Algebraic notation"},
+        {id:"A2", t:"Substituting into formulae"},
+        {id:"A3", t:"Expressions, equations, identities & inequalities"},
+        {id:"A4", t:"Simplifying & factorising expressions"},
+        {id:"A5", t:"Standard formulae & rearranging (changing the subject)"},
+        {id:"A6", t:"Proof & equivalence of expressions"},
+        {id:"A7", t:"Functions, inverse & composite functions"}
+      ]},
+      { id:"3.2.2", title:"Graphs", subs:[
+        {id:"A8", t:"Coordinates in four quadrants"},
+        {id:"A9", t:"Straight-line graphs (y = mx + c)"},
+        {id:"A10", t:"Gradients & intercepts"},
+        {id:"A11", t:"Roots & turning points of quadratics"},
+        {id:"A12", t:"Sketching & interpreting graphs"},
+        {id:"A13", t:"Translating & reflecting graphs"},
+        {id:"A14", t:"Real-life graphs & kinematics graphs"},
+        {id:"A15", t:"Gradients & areas under graphs"},
+        {id:"A16", t:"Equation of a circle & tangents"}
+      ]},
+      { id:"3.2.3", title:"Solving equations and inequalities", subs:[
+        {id:"A17", t:"Solving linear equations"},
+        {id:"A18", t:"Solving quadratic equations"},
+        {id:"A19", t:"Simultaneous equations"},
+        {id:"A20", t:"Iteration"},
+        {id:"A21", t:"Forming & solving equations from context"},
+        {id:"A22", t:"Solving & representing inequalities"}
+      ]},
+      { id:"3.2.4", title:"Sequences", subs:[
+        {id:"A23", t:"Generating sequences"},
+        {id:"A24", t:"Special sequences (triangular, geometric, Fibonacci)"},
+        {id:"A25", t:"nth term of a sequence"}
+      ]}
+    ]},
+  ratio: { label:"Ratio, proportion & rates of change", key:"ratio", color:"#38B6D9", topics:[
+      { id:"3.3", title:"Ratio, proportion and rates of change", subs:[
+        {id:"R1", t:"Converting units & compound units"},
+        {id:"R2", t:"Scale factors, diagrams & maps"},
+        {id:"R3", t:"Expressing one quantity as a fraction of another"},
+        {id:"R4", t:"Ratio notation"},
+        {id:"R5", t:"Dividing quantities in a given ratio"},
+        {id:"R6", t:"Multiplicative relationships as ratio/fraction"},
+        {id:"R7", t:"Proportion as equality of ratios"},
+        {id:"R8", t:"Ratios, fractions & linear functions"},
+        {id:"R9", t:"Percentages & percentage change"},
+        {id:"R10", t:"Direct & inverse proportion"},
+        {id:"R11", t:"Compound units (speed, density, pressure)"},
+        {id:"R12", t:"Ratio in lengths, areas & volumes"},
+        {id:"R13", t:"Direct/inverse proportion equations"},
+        {id:"R14", t:"Gradient as a rate of change"},
+        {id:"R15", t:"Rate of change on curves (tangents/chords)"},
+        {id:"R16", t:"Growth & decay (compound interest)"}
+      ]}
+    ]},
+  geometry: { label:"Geometry & measures", key:"geometry", color:"#4A6FA5", topics:[
+      { id:"3.4.1", title:"Properties and constructions", subs:[
+        {id:"G1", t:"Geometric terms & notation"},
+        {id:"G2", t:"Ruler & compass constructions, loci"},
+        {id:"G3", t:"Angle facts & angle sum of a triangle"},
+        {id:"G4", t:"Properties of quadrilaterals & triangles"},
+        {id:"G5", t:"Congruence criteria (SSS, SAS, ASA, RHS)"},
+        {id:"G6", t:"Angle proofs (incl. Pythagoras)"},
+        {id:"G7", t:"Congruent & similar shapes (transformations)"},
+        {id:"G8", t:"Combining transformations"},
+        {id:"G9", t:"Circle definitions & parts"},
+        {id:"G10", t:"Circle theorems"},
+        {id:"G11", t:"Geometry on coordinate axes"},
+        {id:"G12", t:"Properties of 3D shapes"},
+        {id:"G13", t:"Plans & elevations"}
+      ]},
+      { id:"3.4.2", title:"Mensuration and calculation", subs:[
+        {id:"G14", t:"Standard units of measure"},
+        {id:"G15", t:"Measuring & bearings"},
+        {id:"G16", t:"Area & volume formulae"},
+        {id:"G17", t:"Circumference & area of a circle"},
+        {id:"G18", t:"Arc length, sector angle & area"},
+        {id:"G19", t:"Congruence & similarity (lengths/areas/volumes)"},
+        {id:"G20", t:"Pythagoras' theorem & trigonometry (right-angled)"},
+        {id:"G21", t:"Exact trig values"},
+        {id:"G22", t:"Sine rule & cosine rule"},
+        {id:"G23", t:"Area of a triangle (½ab sinC)"}
+      ]},
+      { id:"3.4.3", title:"Vectors", subs:[
+        {id:"G24", t:"Vectors as 2D translations"},
+        {id:"G25", t:"Vector arithmetic & geometric proof"}
+      ]}
+    ]},
+  probability: { label:"Probability", key:"probability", color:"#6E8CAE", topics:[
+      { id:"3.5", title:"Probability", subs:[
+        {id:"P1", t:"Recording & analysing outcomes (tables, frequency trees)"},
+        {id:"P2", t:"Randomness, fairness & expected outcomes"},
+        {id:"P3", t:"Relative frequency vs theoretical probability"},
+        {id:"P4", t:"Probabilities summing to 1"},
+        {id:"P5", t:"Sample size & theoretical probability"},
+        {id:"P6", t:"Systematic listing (tables, grids, Venn, tree diagrams)"},
+        {id:"P7", t:"Possibility spaces & theoretical probability"},
+        {id:"P8", t:"Independent & dependent combined events"},
+        {id:"P9", t:"Conditional probability"}
+      ]}
+    ]},
+  statistics: { label:"Statistics", key:"statistics", color:"#3D93B8", topics:[
+      { id:"3.6", title:"Statistics", subs:[
+        {id:"S1", t:"Sampling & inferring about populations"},
+        {id:"S2", t:"Tables, charts & diagrams for data"},
+        {id:"S3", t:"Histograms & cumulative frequency"},
+        {id:"S4", t:"Central tendency & spread (incl. box plots, quartiles)"},
+        {id:"S5", t:"Describing a population statistically"},
+        {id:"S6", t:"Scatter graphs & correlation"}
+      ]}
+    ]}
+  } },
+  englang: { label:"English Language", order:["fiction", "nonfiction", "spoken"], groups:{
+  fiction: { label:"Fiction & Imaginative Writing", key:"fiction", color:"#2FA6A6", topics:[
+      { id:"EL-F", title:"Component 1", subs:[
+        {id:"EL-F1", t:"Reading unseen 19th-century fiction"},
+        {id:"EL-F2", t:"Critical reading: themes, evidence & evaluation"},
+        {id:"EL-F3", t:"Summarising a single fiction text"},
+        {id:"EL-F4", t:"Analysing vocabulary, form & structure (fiction)"},
+        {id:"EL-F5", t:"Imaginative writing: narrative & description"},
+        {id:"EL-F6", t:"Writing for impact: language & rhetorical devices"}
+      ]}
+    ]},
+  nonfiction: { label:"Non-fiction & Transactional Writing", key:"nonfiction", color:"#5B6FD8", topics:[
+      { id:"EL-N", title:"Component 2", subs:[
+        {id:"EL-N1", t:"Reading unseen 20th/21st-century non-fiction"},
+        {id:"EL-N2", t:"Critical reading: bias, evidence & viewpoint"},
+        {id:"EL-N3", t:"Summarising & synthesising across two texts"},
+        {id:"EL-N4", t:"Comparing non-fiction texts"},
+        {id:"EL-N5", t:"Analysing vocabulary, form & structure (non-fiction)"},
+        {id:"EL-N6", t:"Transactional writing: article, letter & review"},
+        {id:"EL-N7", t:"Transactional writing: speech & guide/leaflet"}
+      ]}
+    ]},
+  spoken: { label:"Spoken Language Endorsement", key:"spoken", color:"#38B6D9", topics:[
+      { id:"EL-S", title:"Separate pass/fail endorsement", subs:[
+        {id:"EL-S1", t:"Presenting: structure, register & purpose"},
+        {id:"EL-S2", t:"Responding to questions & feedback"},
+        {id:"EL-S3", t:"Listening & responding to others' talk"}
+      ]}
+    ]}
+  } },
+  englit: { label:"English Literature", order:["macbeth", "inspector", "jekyllhyde", "conflict"], groups:{
+  macbeth: { label:"Macbeth (Shakespeare)", key:"macbeth", color:"#2FA6A6", topics:[
+      { id:"MAC", title:"Component 1 — Shakespeare", subs:[
+        {id:"MAC1", t:"Plot & structure overview"},
+        {id:"MAC2", t:"Character: Macbeth"},
+        {id:"MAC3", t:"Character: Lady Macbeth"},
+        {id:"MAC4", t:"Themes: ambition, power & guilt"},
+        {id:"MAC5", t:"Themes: the supernatural & fate"},
+        {id:"MAC6", t:"Shakespeare's language & dramatic technique"},
+        {id:"MAC7", t:"Context: Jacobean drama & regicide"}
+      ]}
+    ]},
+  inspector: { label:"An Inspector Calls (Priestley)", key:"inspector", color:"#5B6FD8", topics:[
+      { id:"AIC", title:"Component 1 — Post-1914 play", subs:[
+        {id:"AIC1", t:"Plot & dramatic structure"},
+        {id:"AIC2", t:"Character: Inspector Goole"},
+        {id:"AIC3", t:"Character: the Birling family"},
+        {id:"AIC4", t:"Themes: responsibility & social class"},
+        {id:"AIC5", t:"Themes: age, gender & generational conflict"},
+        {id:"AIC6", t:"Priestley's dramatic techniques (dramatic irony, structure)"},
+        {id:"AIC7", t:"Context: 1912 setting vs 1945 writing"}
+      ]}
+    ]},
+  jekyllhyde: { label:"Dr Jekyll and Mr Hyde (Stevenson)", key:"jekyllhyde", color:"#38B6D9", topics:[
+      { id:"JH", title:"Component 2 — 19th-century novel", subs:[
+        {id:"JH1", t:"Plot & narrative structure"},
+        {id:"JH2", t:"Character: Dr Jekyll & Mr Hyde (duality)"},
+        {id:"JH3", t:"Character: Mr Utterson & other narrators"},
+        {id:"JH4", t:"Themes: duality of human nature"},
+        {id:"JH5", t:"Themes: science, secrecy & reputation"},
+        {id:"JH6", t:"Stevenson's use of gothic conventions & structure"},
+        {id:"JH7", t:"Context: Victorian society & scientific anxiety"}
+      ]}
+    ]},
+  conflict: { label:"Conflict (Poetry Anthology)", key:"conflict", color:"#4A6FA5", topics:[
+      { id:"POEMS", title:"Component 2 — Poetry since 1789", subs:[
+        {id:"POEM1", t:"A Poison Tree – Blake"},
+        {id:"POEM2", t:"The Destruction of Sennacherib – Byron"},
+        {id:"POEM3", t:"Extract from The Prelude 'Boating' – Wordsworth"},
+        {id:"POEM4", t:"The Man He Killed – Hardy"},
+        {id:"POEM5", t:"Cousin Kate – Rossetti"},
+        {id:"POEM6", t:"Exposure – Owen"},
+        {id:"POEM7", t:"The Charge of the Light Brigade – Tennyson"},
+        {id:"POEM8", t:"Half-caste – Agard"},
+        {id:"POEM9", t:"Catrin – Clarke"},
+        {id:"POEM10", t:"War Photographer – Satyamurti"},
+        {id:"POEM11", t:"Belfast Confetti – Carson"},
+        {id:"POEM12", t:"The Class Game – Casey"},
+        {id:"POEM13", t:"Poppies – Weir"},
+        {id:"POEM14", t:"No Problem – Zephaniah"},
+        {id:"POEM15", t:"What Were They Like? – Levertov"}
+      ]}
+    ]}
+  } }
+};
+const COURSE_SUBTITLES = {
+  science: "AQA Combined Science: Trilogy (8464)",
+  maths: "AQA GCSE Mathematics (8300)",
+  englang: "Edexcel GCSE English Language (1EN0)",
+  englit: "Edexcel GCSE English Literature (1ET0)"
+};
+const COURSE_ORDER = ["science","maths","englang","englit"];
+
+let currentCourse = "science";
+let state = {};
+let planOpen = false;
+let planSettings = null;
+let activityOpen = false;
+let activityLog = [];
+let collapsedMap = {};
+let currentFilter = "all";
+
+let modalItem = null;
+let modalContent = null;
+let modalTab = "summary";
+let flashIndex = 0, flashFlipped = false;
+let quizIndex = 0, quizAnswers = [];
+
+function allItemIds(){
+  const ids = [];
+  Object.values(COURSES).forEach(course=>{
+    Object.values(course.groups).forEach(group=>{
+      group.topics.forEach(top=> top.subs.forEach(s=> ids.push(s.id)));
+    });
+  });
+  return ids;
+}
+function findItem(id){
+  for(const [courseKey, course] of Object.entries(COURSES)){
+    for(const group of Object.values(course.groups)){
+      for(const top of group.topics){
+        for(const s of top.subs){
+          if(s.id===id) return {sub:s, topic:top, subject:group, courseKey, courseLabel:course.label};
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function loadState(){
+  try{
+    const res = await fetch("/api/progress");
+    state = res.ok ? await res.json() : {};
+  }catch(e){ state = {}; }
+  allItemIds().forEach(id=>{ if(!state[id]) state[id] = {status:0}; });
+}
+let saveTimer=null;
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async ()=>{
+    try{
+      await fetch("/api/progress", {method:"PUT", headers:{"content-type":"application/json"}, body:JSON.stringify(state)});
+      showToast("Saved \u{1F43E}");
+    }catch(e){ showToast("Couldn't save"); }
+  },200);
+}
+function showToast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg; el.classList.add("show");
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),1100);
+}
+function cycleStatus(id, evt){
+  if(evt) evt.stopPropagation();
+  state[id].status=(state[id].status+1)%3;
+  saveState(); logActivity(id, state[id].status, "manual"); render();
+}
+function subjectStats(group){
+  let total=0,covered=0,weak=0;
+  group.topics.forEach(top=>top.subs.forEach(s=>{
+    total++;
+    const st=state[s.id]?state[s.id].status:0;
+    if(st===1)covered++;
+    if(st===2){covered++;weak++;}
+  }));
+  return {total,covered,weak};
+}
+
+function overallStats(){
+  const course = COURSES[currentCourse];
+  let total=0, covered=0;
+  course.order.forEach(k=>{
+    const s = subjectStats(course.groups[k]);
+    total += s.total; covered += s.covered;
+  });
+  return {total, covered, pct: total ? Math.round((covered/total)*100) : 0};
+}
+
+function switchCourse(key){
+  currentCourse = key;
+  currentFilter = "all";
+  render();
+}
+
+function renderCourseTabs(){
+  const el = document.getElementById("courseTabs");
+  el.innerHTML = COURSE_ORDER.map(k=>{
+    const active = k===currentCourse ? "active" : "";
+    return `<button class="${active}" onclick="switchCourse('${k}')">${COURSES[k].label}</button>`;
+  }).join("");
+}
+
+function renderHero(){
+  const {pct} = overallStats();
+  const mood = pct >= 70 ? "happy" : (pct >= 25 ? "content" : "sleepy");
+  const color = pct >= 70 ? "#2F80C4" : (pct >= 25 ? "#2FA6A6" : "#A9BBCB");
+  document.getElementById("heroMascot").innerHTML = catFace(color, mood, 58);
+  document.getElementById("heroTitle").textContent = "Study Buddies";
+  document.getElementById("heroSubtitle").textContent = COURSE_SUBTITLES[currentCourse];
+}
+
+function renderSummary(){
+  const course = COURSES[currentCourse];
+  const el=document.getElementById("summary");
+  let html=""; let gT=0,gC=0;
+  course.order.forEach(k=>{
+    const group=course.groups[k]; const s=subjectStats(group);
+    gT+=s.total; gC+=s.covered;
+    const pct=s.total?Math.round((s.covered/s.total)*100):0;
+    html+=`<div class="sum-card" style="--accent:${group.color}"><div class="pct">${pct}%</div><div class="lbl">${group.label}</div></div>`;
+  });
+  const overallPct=gT?Math.round((gC/gT)*100):0;
+  el.innerHTML=`<div class="sum-card overall"><div class="pct">${overallPct}%</div><div class="lbl">Overall</div></div>`+html;
+
+  const weakItems=[];
+  course.order.forEach(k=> course.groups[k].topics.forEach(top=>top.subs.forEach(s=>{
+    if(state[s.id]&&state[s.id].status===2) weakItems.push(s.t);
+  })));
+  const banner=document.getElementById("weakBanner");
+  if(weakItems.length){
+    banner.classList.add("show");
+    banner.innerHTML=`<span class="paw">\u{1F43E}</span><span><b>${weakItems.length} ${weakItems.length>1?"topics":"topic"} need another look.</b> Filter by "Needs work" to find them.</span>`;
+  }else banner.classList.remove("show");
+}
+function itemMatchesFilter(id){ return currentFilter==="all" || String(state[id].status)===currentFilter; }
+
+function renderSubjects(){
+  const course = COURSES[currentCourse];
+  const container=document.getElementById("subjects");
+  container.innerHTML=course.order.map(k=>{
+    const group=course.groups[k]; const stats=subjectStats(group);
+    const pct=stats.total?Math.round((stats.covered/stats.total)*100):0;
+    const collapsed=collapsedMap[k]?"collapsed":"";
+    const topicsHtml=group.topics.map(top=>{
+      const rows=top.subs.map(s=>{
+        const st=state[s.id]||{status:0};
+        const match=itemMatchesFilter(s.id);
+        const icon=st.status===1?"\u{1F63B}":(st.status===2?"\u{1FA79}":"\u{1F43E}");
+        return `<div class="item ${match?'':'hidden'}" data-id="${s.id}">
+          <button class="status-btn" data-status="${st.status}" onclick="cycleStatus('${s.id}', event)" aria-label="Toggle status">${icon}</button>
+          <div class="item-body" onclick="openModal('${s.id}')">
+            <div class="item-title"><span class="item-code">${s.id}</span>${s.t}</div>
+          </div>
+          <div class="item-arrow">&rsaquo;</div>
+        </div>`;
+      }).join("");
+      let tot=0,cov=0;
+      top.subs.forEach(s=>{tot++; if(state[s.id]&&state[s.id].status>0)cov++;});
+      return `<div class="topic">
+        <div class="topic-title"><span>${top.id} ${top.title}</span><span>${cov}/${tot}</span></div>
+        ${rows}
+      </div>`;
+    }).join("");
+    return `<div class="subject ${collapsed}" data-key="${k}" style="--accent:${group.color}">
+      <div class="subject-head" onclick="toggleCollapse('${k}')">
+        <div class="left"><div class="cat-badge">${catFace(group.color, "content", 34)}</div><h2>${group.label}</h2></div>
+        <div style="display:flex;align-items:center;">
+          <span class="count">${stats.covered}/${stats.total}${stats.weak?' &middot; '+stats.weak+' \u{1FA79}':''}</span>
+          <span class="chevron">&#9660;</span>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="subject-body">${topicsHtml}</div>
+    </div>`;
+  }).join("");
+}
+function toggleCollapse(k){ collapsedMap[k]=!collapsedMap[k]; render(); }
+
+/* ---------------- Study Plan ---------------- */
+
+const DEFAULT_PLAN = { weeksTotal: 6, daysPerWeek: 6, startDate: null };
+
+function toISODate(d){ return d.toISOString().slice(0,10); }
+function parseISODate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y, m-1, d); }
+function addDays(date, n){ const d=new Date(date); d.setDate(d.getDate()+n); return d; }
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function fmtDate(d){ return d.toLocaleDateString(undefined, {day:"numeric", month:"short"}); }
+
+async function loadPlanSettings(){
+  try{
+    const res = await fetch("/api/plan");
+    const val = res.ok ? await res.json() : null;
+    planSettings = val || { ...DEFAULT_PLAN, startDate: toISODate(new Date()) };
+    if(!val){ savePlanSettings(); }
+  }catch(e){
+    planSettings = { ...DEFAULT_PLAN, startDate: toISODate(new Date()) };
+  }
+}
+let planSaveTimer=null;
+function savePlanSettings(){
+  clearTimeout(planSaveTimer);
+  planSaveTimer=setTimeout(async ()=>{
+    try{ await fetch("/api/plan", {method:"PUT", headers:{"content-type":"application/json"}, body:JSON.stringify(planSettings)}); showToast("Plan updated"); }
+    catch(e){ showToast("Couldn't save plan"); }
+  },200);
+}
+
+function allItemsOrdered(){
+  const list = [];
+  COURSE_ORDER.forEach(ck=>{
+    const course = COURSES[ck];
+    course.order.forEach(gk=>{
+      const group = course.groups[gk];
+      group.topics.forEach(top=> top.subs.forEach(s=>{
+        list.push({id:s.id, t:s.t, courseKey:ck, courseLabel:course.label, groupKey:gk, groupLabel:group.label});
+      }));
+    });
+  });
+  return list;
+}
+
+function computePlan(){
+  const items = allItemsOrdered();
+  const notStarted = items.filter(it => !state[it.id] || state[it.id].status===0);
+  const weak = items.filter(it => state[it.id] && state[it.id].status===2);
+
+  const start = parseISODate(planSettings.startDate);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const totalDays = planSettings.weeksTotal * 7;
+  const reviewStartIdx = planSettings.weeksTotal >= 2 ? totalDays - 7 : totalDays;
+  const todayIdx = daysBetween(start, today);
+  const overdue = todayIdx >= totalDays;
+
+  function isStudyDay(idx){ return (((idx%7)+7)%7) < planSettings.daysPerWeek; }
+
+  let newContentDays = [];
+  for(let i=Math.max(todayIdx,0); i<reviewStartIdx; i++){ if(isStudyDay(i)) newContentDays.push(i); }
+  let reviewDays = [];
+  for(let i=Math.max(todayIdx,reviewStartIdx); i<totalDays; i++){ if(isStudyDay(i)) reviewDays.push(i); }
+
+  const perDayNew = newContentDays.length>0 ? Math.ceil(notStarted.length/newContentDays.length) : notStarted.length;
+  const perDayReview = reviewDays.length>0 ? Math.ceil(weak.length/reviewDays.length) : weak.length;
+
+  const schedule = [];
+  let nsPtr = 0, wkPtr = 0;
+  const displayStart = Math.max(todayIdx, 0);
+  for(let idx=displayStart; idx<totalDays; idx++){
+    const date = addDays(start, idx);
+    const rest = !isStudyDay(idx);
+    const inReview = idx >= reviewStartIdx;
+    let dayItems = [];
+    if(!rest){
+      if(inReview){ dayItems = weak.slice(wkPtr, wkPtr+perDayReview); wkPtr += dayItems.length; }
+      else{ dayItems = notStarted.slice(nsPtr, nsPtr+perDayNew); nsPtr += dayItems.length; }
+    }
+    schedule.push({idx, date, rest, inReview, items:dayItems});
+  }
+
+  return { notStarted, weak, start, today, todayIdx, totalDays, reviewStartIdx, overdue, perDayNew, perDayReview, schedule };
+}
+
+function togglePlanPanel(){
+  planOpen = !planOpen;
+  document.getElementById("planToggleBtn").classList.toggle("active", planOpen);
+  document.getElementById("planPanel").classList.toggle("show", planOpen);
+  if(planOpen) renderPlan();
+}
+
+function updatePlanWeeks(val){
+  planSettings.weeksTotal = Math.max(1, Math.min(20, parseInt(val)||6));
+  savePlanSettings(); renderPlan();
+}
+function updatePlanDaysPerWeek(val){
+  planSettings.daysPerWeek = Math.max(1, Math.min(7, parseInt(val)||6));
+  savePlanSettings(); renderPlan();
+}
+function restartPlan(){
+  planSettings.startDate = toISODate(new Date());
+  savePlanSettings(); renderPlan();
+}
+function extendPlan(weeks){
+  planSettings.weeksTotal += weeks;
+  savePlanSettings(); renderPlan();
+}
+
+function renderPlan(){
+  if(!planOpen || !planSettings) return;
+  const p = computePlan();
+  const el = document.getElementById("planPanel");
+
+  const settingsHtml = `
+    <div class="plan-settings">
+      <div class="plan-field">
+        <label>Weeks</label>
+        <input type="number" min="1" max="20" value="${planSettings.weeksTotal}" onchange="updatePlanWeeks(this.value)">
+      </div>
+      <div class="plan-field">
+        <label>Study days/week</label>
+        <input type="number" min="1" max="7" value="${planSettings.daysPerWeek}" onchange="updatePlanDaysPerWeek(this.value)">
+      </div>
+      <span class="plan-restart" onclick="restartPlan()">Restart plan from today</span>
+    </div>
+  `;
+
+  if(p.overdue){
+    const remaining = p.notStarted.length + p.weak.length;
+    el.innerHTML = settingsHtml + `
+      <div class="plan-overdue">
+        This plan's end date has passed, with ${remaining} topic${remaining===1?'':'s'} still not covered.
+        <br><button onclick="extendPlan(2)">Extend by 2 weeks</button>
+      </div>
+    `;
+    return;
+  }
+
+  const endDate = addDays(p.start, p.totalDays - 1);
+  const dayNum = p.todayIdx + 1;
+  const statusHtml = `
+    <div class="plan-status">
+      Started <b>${fmtDate(p.start)}</b> &middot; Ends <b>${fmtDate(endDate)}</b> &middot; Day <b>${dayNum}</b> of ${p.totalDays}<br>
+      <b>${p.notStarted.length}</b> topics left to cover, <b>${p.weak.length}</b> flagged for review &middot; pace: <b>${p.perDayNew || 0}/day</b> until review week
+    </div>
+  `;
+
+  const todayEntry = p.schedule[0];
+  let todayHtml = "";
+  if(todayEntry){
+    if(todayEntry.rest){
+      todayHtml = `<div class="plan-today"><h3>Today \u2014 ${fmtDate(todayEntry.date)}</h3><div class="rest-msg">Rest day \u2014 nothing scheduled \uD83D\uDC3E</div></div>`;
+    }else if(todayEntry.items.length===0){
+      todayHtml = `<div class="plan-today"><h3>Today \u2014 ${fmtDate(todayEntry.date)}</h3><div class="rest-msg">${todayEntry.inReview ? "Nothing flagged for review right now \u2014 free day!" : "All caught up on new topics \u2014 free day!"}</div></div>`;
+    }else{
+      todayHtml = `<div class="plan-today"><h3>Today \u2014 ${fmtDate(todayEntry.date)} ${todayEntry.inReview?'(review)':''}</h3>` +
+        todayEntry.items.map(it=>`<div class="plan-item" onclick="openModal('${it.id}')"><span class="tag">${it.courseLabel}</span><span class="txt">${it.t}</span></div>`).join("") +
+        `</div>`;
+    }
+  }
+
+  // Group remaining schedule (excluding today, which is schedule[0]) by week
+  const weekMap = {};
+  p.schedule.slice(1).forEach(day=>{
+    const wk = Math.floor(day.idx/7);
+    if(!weekMap[wk]) weekMap[wk] = { days:[], items:[] };
+    weekMap[wk].days.push(day);
+    weekMap[wk].items.push(...day.items);
+  });
+  const weeksHtml = Object.keys(weekMap).sort((a,b)=>a-b).map(wk=>{
+    const w = weekMap[wk];
+    const first = w.days[0].date, last = w.days[w.days.length-1].date;
+    const isReviewWeek = w.days.some(d=>d.inReview);
+    const counts = {};
+    w.items.forEach(it=>{ counts[it.groupLabel] = (counts[it.groupLabel]||0) + 1; });
+    const breakdown = Object.entries(counts).map(([label,n])=>`${label} (${n})`).join(" \u00b7 ") || "Free days / buffer";
+    return `<div class="plan-week-card ${isReviewWeek?'review':''}">
+      <div class="wk-head"><span>Week ${parseInt(wk)+1}${isReviewWeek?' \u2014 Review':''} (${fmtDate(first)}\u2013${fmtDate(last)})</span><span>${w.items.length} topic${w.items.length===1?'':'s'}</span></div>
+      <div class="wk-breakdown">${breakdown}</div>
+    </div>`;
+  }).join("");
+
+  el.innerHTML = settingsHtml + statusHtml + todayHtml + `<div class="plan-weeks">${weeksHtml}</div>`;
+}
+
+function render(){ renderCourseTabs(); renderHero(); renderSummary(); renderSubjects(); renderPlan(); renderActivity(); }
+
+/* ---------------- Activity log (for the parent-facing tracker) ---------------- */
+
+async function loadActivityLog(){
+  try{
+    const res = await fetch("/api/activity");
+    activityLog = res.ok ? await res.json() : [];
+  }catch(e){ activityLog = []; }
+}
+let activitySaveTimer=null;
+function logActivity(id, status, type){
+  activityLog.push({ id, status, type, ts: Date.now() });
+  if(activityLog.length > 500) activityLog = activityLog.slice(-500);
+  clearTimeout(activitySaveTimer);
+  activitySaveTimer = setTimeout(async ()=>{
+    try{ await fetch("/api/activity", {method:"PUT", headers:{"content-type":"application/json"}, body:JSON.stringify(activityLog)}); }
+    catch(e){ /* non-critical, fail silently */ }
+  }, 300);
+  if(activityOpen) renderActivity();
+}
+
+function toggleActivityPanel(){
+  activityOpen = !activityOpen;
+  document.getElementById("activityToggleBtn").classList.toggle("active", activityOpen);
+  document.getElementById("activityPanel").classList.toggle("show", activityOpen);
+  if(activityOpen) renderActivity();
+}
+
+function relativeTime(ts){
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs/60000);
+  if(mins < 1) return "just now";
+  if(mins < 60) return `${mins} minute${mins===1?'':'s'} ago`;
+  const hrs = Math.floor(mins/60);
+  if(hrs < 24) return `${hrs} hour${hrs===1?'':'s'} ago`;
+  const days = Math.floor(hrs/24);
+  return `${days} day${days===1?'':'s'} ago`;
+}
+
+function activityByDate(daysBack){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i=daysBack-1; i>=0; i--){
+    const d = addDays(today, -i);
+    days.push({ date:d, key:toISODate(d), ids:new Set(), quiz:0, manual:0 });
+  }
+  const byKey = {};
+  days.forEach(d=> byKey[d.key]=d);
+  activityLog.forEach(ev=>{
+    const d = new Date(ev.ts); d.setHours(0,0,0,0);
+    const key = toISODate(d);
+    if(byKey[key]){
+      byKey[key].ids.add(ev.id);
+      if(ev.type==="quiz") byKey[key].quiz++; else byKey[key].manual++;
+    }
+  });
+  return days;
+}
+
+function renderActivity(){
+  if(!activityOpen) return;
+  const el = document.getElementById("activityPanel");
+  const days = activityByDate(14);
+  const todayKey = toISODate(new Date());
+  const maxCount = Math.max(1, ...days.map(d=>d.ids.size));
+
+  let targetLine = "";
+  if(planSettings){
+    const p = computePlan();
+    const todayEntry = p.schedule[0];
+    const todayCount = days[days.length-1].ids.size;
+    if(!todayEntry || p.overdue){
+      targetLine = `<div class="activity-today">${todayCount} topic${todayCount===1?'':'s'} touched today</div>`;
+    }else if(todayEntry.rest){
+      targetLine = `<div class="activity-today">Rest day today \u2014 ${todayCount} topic${todayCount===1?'':'s'} touched anyway \uD83D\uDC4F</div>`;
+    }else{
+      const target = todayEntry.items.length;
+      targetLine = `<div class="activity-today">${todayCount} of ${target} topic${target===1?'':'s'} planned for today done</div>`;
+    }
+  }else{
+    const todayCount = days[days.length-1].ids.size;
+    targetLine = `<div class="activity-today">${todayCount} topic${todayCount===1?'':'s'} touched today</div>`;
+  }
+
+  const lastEvent = activityLog[activityLog.length-1];
+  const lastActiveLine = lastEvent
+    ? `<div class="activity-lastactive">Last active: ${relativeTime(lastEvent.ts)}</div>`
+    : `<div class="activity-lastactive">No activity logged yet</div>`;
+
+  const barsHtml = days.map(d=>{
+    const count = d.ids.size;
+    const pct = Math.max(4, Math.round((count/maxCount)*100));
+    const isToday = d.key===todayKey;
+    const dayLabel = d.date.toLocaleDateString(undefined, {weekday:"narrow"});
+    return `<div class="activity-bar-col ${isToday?'today':''}">
+      <span class="bar-count">${count||''}</span>
+      <div class="activity-bar" style="height:${pct}%"></div>
+      <span class="bar-day">${dayLabel}</span>
+    </div>`;
+  }).join("");
+
+  const totalQuiz = activityLog.filter(e=>e.type==="quiz").length;
+  const totalManual = activityLog.filter(e=>e.type==="manual").length;
+
+  el.innerHTML = `
+    ${targetLine}
+    ${lastActiveLine}
+    <div class="activity-bars">${barsHtml}</div>
+    <div class="activity-note">
+      Bars show distinct topics touched per day over the last 14 days (today highlighted).
+      ${totalQuiz+totalManual>0 ? `${totalQuiz} completed via quiz, ${totalManual} set manually \u2014 quiz completions are the stronger signal of actual studying.` : ''}
+    </div>
+  `;
+}
+
+document.querySelectorAll(".filters button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".filters button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter=btn.dataset.filter;
+    render();
+  });
+});
+
+async function getOrGenerateContent(id, force){
+  const url = `/api/content?id=${encodeURIComponent(id)}${force?'&force=1':''}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("content_fetch_failed");
+  return await res.json();
+}
+
+function openModal(id){
+  const found = findItem(id);
+  modalItem = {id, t:found.sub.t, subjectLabel:found.subject.label, topicTitle:found.topic.title, courseLabel:found.courseLabel};
+  modalContent = null;
+  modalTab = "summary";
+  flashIndex = 0; flashFlipped = false;
+  quizIndex = 0; quizAnswers = [];
+
+  document.getElementById("modalTitle").textContent = found.sub.t;
+  document.getElementById("modalSubcode").textContent = `${found.sub.id} \u2022 ${found.courseLabel} \u2022 ${found.subject.label}`;
+  document.querySelectorAll("#modalTabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab==="summary"));
+  document.getElementById("modalOverlay").classList.add("show");
+  loadModalContent();
+}
+function closeModal(){ document.getElementById("modalOverlay").classList.remove("show"); }
+document.querySelectorAll("#modalTabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    modalTab = btn.dataset.tab;
+    document.querySelectorAll("#modalTabs button").forEach(b=>b.classList.toggle("active", b===btn));
+    renderModalBody();
+  });
+});
+
+async function loadModalContent(force){
+  document.getElementById("modalBody").innerHTML = `<div class="loading"><div class="spinner">${catFace("#2F80C4","content",40)}</div>Fetching ${force?'fresh ':''}revision notes...</div>`;
+  try{
+    modalContent = await getOrGenerateContent(modalItem.id, force);
+    renderModalBody();
+  }catch(e){
+    document.getElementById("modalBody").innerHTML = `<div class="error-box">Couldn't fetch content right now.<br><button onclick="loadModalContent(true)">Try again</button></div>`;
+  }
+}
+function renderModalBody(){
+  if(!modalContent) return;
+  if(modalTab==="summary") renderSummaryTab();
+  else if(modalTab==="flash") renderFlashTab();
+  else renderQuizTab();
+}
+function renderSummaryTab(){
+  const kp = modalContent.keyPoints||[];
+  document.getElementById("modalBody").innerHTML = `
+    <p class="summary-text">${modalContent.summary||""}</p>
+    <ul class="key-points">${kp.map(k=>`<li>${k}</li>`).join("")}</ul>
+    <span class="regen-link" onclick="loadModalContent(true)">Regenerate content</span>
+  `;
+}
+function renderFlashTab(){
+  const cards = modalContent.flashcards||[];
+  if(!cards.length){ document.getElementById("modalBody").innerHTML = "<p>No flashcards available.</p>"; return; }
+  const card = cards[flashIndex];
+  document.getElementById("modalBody").innerHTML = `
+    <div class="flash-wrap">
+      <div class="flash-count">Card ${flashIndex+1} of ${cards.length} &mdash; tap to flip</div>
+      <div class="flashcard" onclick="flipFlash()">
+        <span class="tag">${flashFlipped?'Answer':'Question'}</span>
+        <div>${flashFlipped?card.a:card.q}</div>
+      </div>
+      <div class="flash-nav">
+        <button onclick="navFlash(-1)" ${flashIndex===0?'disabled':''}>&larr; Prev</button>
+        <button onclick="navFlash(1)" ${flashIndex===cards.length-1?'disabled':''}>Next &rarr;</button>
+      </div>
+    </div>
+  `;
+}
+function flipFlash(){ flashFlipped=!flashFlipped; renderFlashTab(); }
+function navFlash(dir){
+  const cards = modalContent.flashcards||[];
+  flashIndex = Math.max(0, Math.min(cards.length-1, flashIndex+dir));
+  flashFlipped = false;
+  renderFlashTab();
+}
+function renderQuizTab(){
+  const quiz = modalContent.quiz||[];
+  if(!quiz.length){ document.getElementById("modalBody").innerHTML="<p>No quiz available.</p>"; return; }
+  if(quizIndex >= quiz.length){ renderQuizResult(quiz); return; }
+  const q = quiz[quizIndex];
+  const answered = quizAnswers[quizIndex] !== undefined;
+  document.getElementById("modalBody").innerHTML = `
+    <div class="quiz-progress">Question ${quizIndex+1} of ${quiz.length}</div>
+    <p class="quiz-q">${q.question}</p>
+    ${q.options.map((opt,i)=>{
+      let cls="quiz-opt";
+      if(answered){
+        if(i===q.correctIndex) cls+=" correct";
+        else if(i===quizAnswers[quizIndex]) cls+=" incorrect";
+      }
+      return `<button class="${cls}" ${answered?'disabled':''} onclick="answerQuiz(${i})">${opt}</button>`;
+    }).join("")}
+    ${answered?`<div class="quiz-explain">${q.explanation||""}</div><button class="quiz-next" onclick="nextQuiz()">${quizIndex===quiz.length-1?'See results':'Next question'}</button>`:""}
+  `;
+}
+function answerQuiz(i){
+  if(quizAnswers[quizIndex]!==undefined) return;
+  quizAnswers[quizIndex]=i;
+  renderQuizTab();
+}
+function nextQuiz(){ quizIndex++; renderQuizTab(); }
+function renderQuizResult(quiz){
+  let correct=0;
+  quiz.forEach((q,i)=>{ if(quizAnswers[i]===q.correctIndex) correct++; });
+  const pct = Math.round((correct/quiz.length)*100);
+  const pass = pct>=80;
+  const id = modalItem.id;
+  state[id].status = pass?1:2;
+  saveState();
+  logActivity(id, state[id].status, "quiz");
+
+  if(pass) paperConfetti();
+
+  document.getElementById("modalBody").innerHTML = `
+    <div class="quiz-result">
+      <div class="mascot-result">${catFace(pass?"#2F80C4":"#E0994F", pass?"happy":"content", 70)}</div>
+      <div class="score">${correct}/${quiz.length}</div>
+      <div class="msg">${pass? "Purr-fect \u2014 marked as covered." : "Marked as needs work \u2014 worth another look."}</div>
+      <button class="primary" onclick="retakeQuiz()">Retake quiz</button>
+      <button onclick="closeModal()">Done</button>
+    </div>
+  `;
+  render();
+}
+function retakeQuiz(){ quizIndex=0; quizAnswers=[]; renderQuizTab(); }
+
+(async function init(){
+  await loadState();
+  await loadPlanSettings();
+  await loadActivityLog();
+  render();
+})();
+</script>
+</body>
+</html>
