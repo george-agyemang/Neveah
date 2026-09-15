@@ -508,7 +508,7 @@ export async function onRequestGet(context) {
       // claude-haiku-4-5-20251001 is a cheaper/faster alternative if you'd
       // rather trade a little quality for lower API cost.
       model: "claude-sonnet-5",
-      max_tokens: 1900,
+      max_tokens: 2800,
       system: `You are a precise ${found.courseLabel} GCSE content writer covering ${found.subject.label}. You always respond with ONLY valid JSON matching the requested schema exactly. No markdown code fences. No commentary before or after the JSON. You never reproduce long passages of copyrighted text \u2014 any quotation is under 10 words.`,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -523,6 +523,14 @@ export async function onRequestGet(context) {
   }
 
   const data = await apiResp.json();
+
+  if (data.stop_reason === "max_tokens") {
+    return new Response(JSON.stringify({ error: "truncated", detail: "Response hit the max_tokens limit before finishing \u2014 increase max_tokens in src/index.js (or content.js) and retry." }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   const text = (data.content || [])
     .filter((b) => b.type === "text")
     .map((b) => b.text)
