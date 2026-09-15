@@ -71,7 +71,7 @@ async function processOne(topic, force){
     const res = await fetch(url);
     if(!res.ok){
       const body = await res.text();
-      return {ok:false, detail:`HTTP ${res.status}: ${body.slice(0,150)}`};
+      return {ok:false, detail: body.slice(0,500)};
     }
     const data = await res.json();
     if(data && data.error) return {ok:false, detail: data.error};
