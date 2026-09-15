@@ -400,7 +400,7 @@ const QUIZ_SCHEMA =
   '{"summary":"...","keyPoints":["..."],"flashcards":[{"q":"...","a":"..."}],"quiz":[{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}],"examQuestion":{"question":"...","marks":0,"markPoints":["...","..."],"modelAnswer":"..."}}';
 
 const EXAM_QUESTION_INSTRUCTIONS_DEFAULT = `
-examQuestion must be a single exam-style written question worth 3-6 marks that uses real exam command words (e.g. "Explain", "Describe", "Calculate", "Compare", "Evaluate") rather than multiple choice. marks should equal the number of independent mark points. markPoints must be an array of exactly that many short, independently-creditable points (each point is something a student either does or doesn't include in their answer, mirroring how a real mark scheme awards one mark per distinct valid point) - do not write markPoints as steps that depend on each other. modelAnswer should be a concise, complete answer that would score full marks, written the way a strong GCSE student would write it, so the student can compare their own written answer against it and tick off which markPoints they covered.`;
+examQuestion must be a single exam-style written question worth 3-6 marks that uses real exam command words (e.g. "Explain", "Describe", "Calculate", "Compare", "Evaluate", "Justify", "Suggest") rather than multiple choice. Vary which command word you use between topics rather than defaulting to the same one every time. Where it fits the topic naturally, frame the question the way real past papers do - e.g. "A student investigates...", "Figure 1 shows...", "A patient/company/sample...", giving a brief plausible scenario or data point rather than a bare abstract question - but never invent numbers or data that would need a diagram to interpret, since there is no diagram here. This is an ORIGINAL question you are writing from the specification, not a copy or close paraphrase of any specific real past exam question - it must test the same knowledge and feel authentic in style without being derived from any particular question you may know of. marks should equal the number of independent mark points. markPoints must be an array of exactly that many short, independently-creditable points (each point is something a student either does or doesn't include in their answer, mirroring how a real mark scheme awards one mark per distinct valid point) - do not write markPoints as steps that depend on each other. modelAnswer should be a concise, complete answer that would score full marks, written the way a strong GCSE student would write it, so the student can compare their own written answer against it and tick off which markPoints they covered.`;
 
 function buildPrompt(found) {
   const { sub, topic, subject, courseKey } = found;
@@ -482,6 +482,114 @@ async function handleKV(request, env, key, emptyValue) {
   return new Response("Method not allowed", { status: 405 });
 }
 
+// Finds the first balanced {...} object in a string, ignoring any text before
+// or after it (some responses add trailing commentary like "Wait, let me
+// redo this..." after an otherwise-complete JSON object). Returns null if no
+// balanced object is found (e.g. genuinely truncated mid-object).
+function extractFirstJsonObject(text) {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0, inString = false, escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+    } else {
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
+}
+
+// Runs one full generate-and-parse attempt. Returns {ok:true, parsed} or
+// {ok:false, errorResponse}. Kept separate from handleContent so it can be
+// retried once on failure (transient API errors, or a model response that
+// rambled after finishing valid JSON) without duplicating the whole flow.
+async function generateOnce(env, found, prompt) {
+  const apiResp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: 7000,
+      system: `You are a precise ${found.courseLabel} GCSE content writer covering ${found.subject.label}. You always respond with ONLY valid JSON matching the requested schema exactly. No markdown code fences. No commentary before or after the JSON. You never reproduce long passages of copyrighted text \u2014 any quotation is under 10 words.`,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!apiResp.ok) {
+    const errText = await apiResp.text();
+    return {
+      ok: false,
+      errorResponse: new Response(JSON.stringify({ error: "anthropic_api_error", detail: errText }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      }),
+    };
+  }
+
+  const data = await apiResp.json();
+
+  const text = (data.content || [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  const clean = text.replace(/```json|```/g, "").trim();
+
+  const jsonSlice = extractFirstJsonObject(clean);
+
+  if (jsonSlice === null) {
+    // No balanced object at all — genuinely truncated (covers both an
+    // explicit stop_reason of "max_tokens" and any other case where the
+    // object never closes).
+    return {
+      ok: false,
+      errorResponse: new Response(JSON.stringify({
+        error: "truncated",
+        stop_reason: data.stop_reason,
+        length: clean.length,
+        detail: "No balanced JSON object found in the response \u2014 it was likely cut off before finishing. Increase max_tokens in src/index.js and retry.",
+      }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      }),
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonSlice);
+    return { ok: true, parsed };
+  } catch (e) {
+    const posMatch = /position (\d+)/.exec(e.message || "");
+    const pos = posMatch ? parseInt(posMatch[1], 10) : null;
+    const windowStart = pos !== null ? Math.max(0, pos - 80) : 0;
+    const windowEnd = pos !== null ? Math.min(jsonSlice.length, pos + 80) : Math.min(jsonSlice.length, 300);
+    return {
+      ok: false,
+      errorResponse: new Response(JSON.stringify({
+        error: "parse_failed",
+        message: e.message,
+        length: jsonSlice.length,
+        around_error: jsonSlice.slice(windowStart, windowEnd),
+      }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      }),
+    };
+  }
+}
+
 async function handleContent(request, env) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
@@ -520,69 +628,20 @@ async function handleContent(request, env) {
 
   const prompt = buildPrompt(found);
 
-  const apiResp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-5",
-      max_tokens: 4500,
-      system: `You are a precise ${found.courseLabel} GCSE content writer covering ${found.subject.label}. You always respond with ONLY valid JSON matching the requested schema exactly. No markdown code fences. No commentary before or after the JSON. You never reproduce long passages of copyrighted text \u2014 any quotation is under 10 words.`,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!apiResp.ok) {
-    const errText = await apiResp.text();
-    return new Response(JSON.stringify({ error: "anthropic_api_error", detail: errText }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
+  let result = await generateOnce(env, found, prompt);
+  if (!result.ok) {
+    // One automatic retry — covers transient Anthropic API errors and the
+    // occasional model response that rambles after finishing valid JSON, or
+    // is cut off, without needing a manual re-run for a single bad topic.
+    result = await generateOnce(env, found, prompt);
+  }
+  if (!result.ok) {
+    return result.errorResponse;
   }
 
-  const data = await apiResp.json();
+  await env.PROGRESS_KV.put(cacheKey, JSON.stringify(result.parsed));
 
-  if (data.stop_reason === "max_tokens") {
-    return new Response(JSON.stringify({ error: "truncated", detail: "Response hit the max_tokens limit before finishing \u2014 increase max_tokens in src/index.js and retry." }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
-  }
-
-  const text = (data.content || [])
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  const clean = text.replace(/```json|```/g, "").trim();
-
-  let parsed;
-  try {
-    parsed = JSON.parse(clean);
-  } catch (e) {
-    // Pull the character position V8 reports (e.g. "...in JSON at position 452")
-    // and show a window of text around it, so we can see exactly what broke
-    // the parse instead of guessing from a truncated log.
-    const posMatch = /position (\d+)/.exec(e.message || "");
-    const pos = posMatch ? parseInt(posMatch[1], 10) : null;
-    const windowStart = pos !== null ? Math.max(0, pos - 80) : 0;
-    const windowEnd = pos !== null ? Math.min(clean.length, pos + 80) : Math.min(clean.length, 300);
-    return new Response(JSON.stringify({
-      error: "parse_failed",
-      message: e.message,
-      length: clean.length,
-      around_error: clean.slice(windowStart, windowEnd),
-    }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
-  }
-
-  await env.PROGRESS_KV.put(cacheKey, JSON.stringify(parsed));
-
-  return new Response(JSON.stringify(parsed), { headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(result.parsed), { headers: { "content-type": "application/json" } });
 }
 
 export default {
