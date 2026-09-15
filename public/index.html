@@ -733,6 +733,8 @@ let modalContent = null;
 let modalTab = "summary";
 let flashIndex = 0, flashFlipped = false;
 let quizIndex = 0, quizAnswers = [];
+let quizPool = [], quizSession = [], quizRotation = 0;
+const QUIZ_DISPLAY_COUNT = 10;
 let examRevealed = false, examChecked = [], examAnswerText = "";
 
 function allItemIds(){
@@ -1218,6 +1220,7 @@ function openModal(id){
   modalTab = "summary";
   flashIndex = 0; flashFlipped = false;
   quizIndex = 0; quizAnswers = [];
+  quizPool = []; quizSession = []; quizRotation = 0;
   examRevealed = false; examChecked = []; examAnswerText = "";
 
   document.getElementById("modalTitle").textContent = found.sub.t;
@@ -1239,6 +1242,9 @@ async function loadModalContent(force){
   document.getElementById("modalBody").innerHTML = `<div class="loading"><div class="spinner">${catFace("#2F80C4","content",40)}</div>Fetching ${force?'fresh ':''}revision notes...</div>`;
   try{
     modalContent = await getOrGenerateContent(modalItem.id, force);
+    quizPool = shuffleArray(modalContent.quiz||[]);
+    quizRotation = 0;
+    quizSession = pickQuizWindow(quizPool, quizRotation, QUIZ_DISPLAY_COUNT);
     renderModalBody();
   }catch(e){
     document.getElementById("modalBody").innerHTML = `<div class="error-box">Couldn't fetch content right now.<br><button onclick="loadModalContent(true)">Try again</button></div>`;
@@ -1284,8 +1290,23 @@ function navFlash(dir){
   flashFlipped = false;
   renderFlashTab();
 }
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function pickQuizWindow(pool, offset, count){
+  if(!pool.length) return [];
+  const n = Math.min(count, pool.length);
+  const out = [];
+  for(let k=0;k<n;k++) out.push(pool[(offset+k) % pool.length]);
+  return out;
+}
 function renderQuizTab(){
-  const quiz = modalContent.quiz||[];
+  const quiz = quizSession||[];
   if(!quiz.length){ document.getElementById("modalBody").innerHTML="<p>No quiz available.</p>"; return; }
   if(quizIndex >= quiz.length){ renderQuizResult(quiz); return; }
   const q = quiz[quizIndex];
@@ -1333,7 +1354,13 @@ function renderQuizResult(quiz){
   `;
   render();
 }
-function retakeQuiz(){ quizIndex=0; quizAnswers=[]; renderQuizTab(); }
+function retakeQuiz(){
+  quizIndex=0; quizAnswers=[];
+  const rotateBy = Math.max(1, Math.floor(QUIZ_DISPLAY_COUNT/2));
+  quizRotation = (quizRotation + rotateBy) % (quizPool.length || 1);
+  quizSession = pickQuizWindow(quizPool, quizRotation, QUIZ_DISPLAY_COUNT);
+  renderQuizTab();
+}
 
 function renderExamTab(){
   const eq = modalContent.examQuestion;
