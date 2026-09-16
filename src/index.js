@@ -523,6 +523,7 @@ async function generateOnce(env, found, prompt) {
     body: JSON.stringify({
       model: "claude-sonnet-5",
       max_tokens: 8000,
+      thinking: { type: "disabled" },
       system: `You are a precise ${found.courseLabel} GCSE content writer covering ${found.subject.label}. You always respond with ONLY valid JSON matching the requested schema exactly. No markdown code fences. No commentary before or after the JSON. You never reproduce long passages of copyrighted text \u2014 any quotation is under 10 words.`,
       messages: [{ role: "user", content: prompt }],
     }),
