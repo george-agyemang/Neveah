@@ -109,6 +109,9 @@
   .plan-item:first-of-type{border-top:none;}
   .plan-item .tag{font-size:10.5px;font-weight:800;color:#215D8F;text-transform:uppercase;background:#fff;border-radius:99px;padding:2px 8px;flex:none;}
   .plan-item .txt{font-size:13px;font-weight:600;color:var(--ink);}
+  .plan-check{width:18px;flex:none;font-size:15px;text-align:center;}
+  .plan-item.done .txt{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:#9AA7B8;}
+  .plan-item.done .tag{opacity:.6;}
 
   .plan-weeks{display:flex;flex-direction:column;gap:8px;}
   .plan-week-card{border:2px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;}
@@ -1083,7 +1086,10 @@ function renderPlan(){
       todayHtml = `<div class="plan-today"><h3>Today \u2014 ${fmtDate(todayEntry.date)}</h3><div class="rest-msg">${todayEntry.inReview ? "Nothing flagged for review right now \u2014 free day!" : "All caught up on new topics \u2014 free day!"}</div></div>`;
     }else{
       todayHtml = `<div class="plan-today"><h3>Today \u2014 ${fmtDate(todayEntry.date)} ${todayEntry.inReview?'(review)':''}</h3>` +
-        todayEntry.items.map(it=>`<div class="plan-item" onclick="openModal('${it.id}')"><span class="tag">${it.courseLabel}</span><span class="txt">${it.t}</span></div>`).join("") +
+        todayEntry.items.map(it=>{
+          const done = state[it.id] && state[it.id].status===1;
+          return `<div class="plan-item ${done?'done':''}" onclick="openModal('${it.id}')"><span class="plan-check">${done?'\u{1F63B}':''}</span><span class="tag">${it.courseLabel}</span><span class="txt">${it.t}</span></div>`;
+        }).join("") +
         `</div>`;
     }
   }
