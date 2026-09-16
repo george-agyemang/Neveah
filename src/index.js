@@ -552,13 +552,22 @@ async function generateOnce(env, found, prompt) {
   if (jsonSlice === null) {
     // No balanced object at all — genuinely truncated (covers both an
     // explicit stop_reason of "max_tokens" and any other case where the
-    // object never closes).
+    // object never closes). block_summary shows every content block type
+    // and length the API actually returned (e.g. a "thinking" block can
+    // consume most of max_tokens invisibly before any visible text starts,
+    // which looks identical to truncation but has a different fix).
+    const blockSummary = (data.content || []).map((b) => ({
+      type: b.type,
+      len: (b.text || JSON.stringify(b) || "").length,
+    }));
     return {
       ok: false,
       errorResponse: new Response(JSON.stringify({
         error: "truncated",
         stop_reason: data.stop_reason,
         length: clean.length,
+        usage: data.usage,
+        block_summary: blockSummary,
         detail: "No balanced JSON object found in the response \u2014 it was likely cut off before finishing. Increase max_tokens in src/index.js and retry.",
       }), {
         status: 502,
