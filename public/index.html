@@ -229,6 +229,9 @@
   .quiz-result .msg{font-size:13.5px;color:var(--ink-soft);margin:8px 0 18px;font-weight:700;}
   .quiz-result button{margin:0 5px;border:2px solid var(--line);background:var(--surface);border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:"Nunito",sans-serif;}
   .quiz-result button.primary{background:var(--gold);color:#fff;border-color:var(--gold);}
+  .quiz-locked{text-align:center;padding:20px 10px;}
+  .quiz-locked p{font-size:13.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5;}
+  .quiz-locked button{margin:0 5px;background:var(--blue);color:#fff;border:none;border-radius:99px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;}
   .exam-answer{width:100%;min-height:100px;border:2px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13.5px;font-family:"Nunito",sans-serif;margin-bottom:12px;resize:vertical;box-sizing:border-box;}
   .exam-model{background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13.5px;}
   .exam-model .tag{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:6px;}
@@ -798,7 +801,15 @@ async function loadState(){
     const res = await fetch("/api/progress");
     state = res.ok ? await res.json() : {};
   }catch(e){ state = {}; }
-  allItemIds().forEach(id=>{ if(!state[id]) state[id] = {status:0}; });
+  allItemIds().forEach(id=>{
+    if(!state[id]) state[id] = {status:0};
+    if(state[id].flashSeen===undefined) state[id].flashSeen = false;
+    if(state[id].notesSeen===undefined) state[id].notesSeen = false;
+    if(state[id].quizFailStreak===undefined) state[id].quizFailStreak = 0;
+    if(state[id].quizLocked===undefined) state[id].quizLocked = false;
+    if(state[id].examFailStreak===undefined) state[id].examFailStreak = 0;
+    if(state[id].examLocked===undefined) state[id].examLocked = false;
+  });
 }
 let saveTimer=null;
 function saveState(){
@@ -1287,6 +1298,26 @@ async function loadModalContent(force){
     document.getElementById("modalBody").innerHTML = `<div class="error-box">Couldn't fetch content right now.<br><button onclick="loadModalContent(true)">Try again</button></div>`;
   }
 }
+function maybeUnlockGates(id){
+  const st = state[id];
+  if(st.notesSeen && st.flashSeen){
+    if(st.quizLocked){ st.quizLocked = false; st.quizFailStreak = 0; }
+    if(st.examLocked){ st.examLocked = false; st.examFailStreak = 0; }
+    saveState();
+  }
+}
+function quizGate(id){
+  const st = state[id];
+  if(!st.flashSeen) return { blocked:true, reason:"flash" };
+  if(st.quizLocked) return { blocked:true, reason:"notes" };
+  return { blocked:false };
+}
+function examGate(id){
+  const st = state[id];
+  if(!st.flashSeen) return { blocked:true, reason:"flash" };
+  if(st.examLocked) return { blocked:true, reason:"notes" };
+  return { blocked:false };
+}
 function renderModalBody(){
   if(!modalContent) return;
   if(modalTab==="summary") renderSummaryTab();
@@ -1296,6 +1327,9 @@ function renderModalBody(){
 }
 function renderSummaryTab(){
   const kp = modalContent.keyPoints||[];
+  state[modalItem.id].notesSeen = true;
+  maybeUnlockGates(modalItem.id);
+  saveState();
   document.getElementById("modalBody").innerHTML = `
     <p class="summary-text">${modalContent.summary||""}</p>
     <ul class="key-points">${kp.map(k=>`<li>${k}</li>`).join("")}</ul>
@@ -1325,6 +1359,11 @@ function navFlash(dir){
   const cards = modalContent.flashcards||[];
   flashIndex = Math.max(0, Math.min(cards.length-1, flashIndex+dir));
   flashFlipped = false;
+  if(flashIndex === cards.length-1){
+    state[modalItem.id].flashSeen = true;
+    maybeUnlockGates(modalItem.id);
+    saveState();
+  }
   renderFlashTab();
 }
 function shuffleArray(arr){
@@ -1343,6 +1382,19 @@ function pickQuizWindow(pool, offset, count){
   return out;
 }
 function renderQuizTab(){
+  const id = modalItem.id;
+  const gate = quizGate(id);
+  if(gate.blocked){
+    const goToFlash = `<button class="primary" onclick="switchModalTab('flash')">Go to Flashcards</button>`;
+    const goToNotes = `<button class="primary" onclick="switchModalTab('summary')">Go to Summary</button>`;
+    const msg = gate.reason==="flash"
+      ? `<p>Review the flashcards for this topic first \u2014 the quiz unlocks once you've been through all of them.</p>${goToFlash}`
+      : `<p>Two attempts without a pass \u2014 the quiz is locked until you've reviewed both the Summary notes and the Flashcards again.</p>
+         ${!state[id].notesSeen?goToNotes:""}
+         ${!state[id].flashSeen?goToFlash:""}`;
+    document.getElementById("modalBody").innerHTML = `<div class="quiz-locked">${msg}</div>`;
+    return;
+  }
   const quiz = quizSession||[];
   if(!quiz.length){ document.getElementById("modalBody").innerHTML="<p>No quiz available.</p>"; return; }
   if(quizIndex >= quiz.length){ renderQuizResult(quiz); return; }
@@ -1362,6 +1414,11 @@ function renderQuizTab(){
     ${answered?`<div class="quiz-explain">${q.explanation||""}</div><button class="quiz-next" onclick="nextQuiz()">${quizIndex===quiz.length-1?'See results':'Next question'}</button>`:""}
   `;
 }
+function switchModalTab(tab){
+  modalTab = tab;
+  document.querySelectorAll("#modalTabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  renderModalBody();
+}
 function answerQuiz(i){
   if(quizAnswers[quizIndex]!==undefined) return;
   quizAnswers[quizIndex]=i;
@@ -1375,17 +1432,33 @@ function renderQuizResult(quiz){
   const pass = pct>=80;
   const id = modalItem.id;
   state[id].status = pass?1:2;
+
+  if(pass){
+    state[id].quizFailStreak = 0;
+  }else{
+    state[id].quizFailStreak = (state[id].quizFailStreak||0) + 1;
+    if(state[id].quizFailStreak >= 2){
+      state[id].quizLocked = true;
+      state[id].flashSeen = false;
+      state[id].notesSeen = false;
+    }
+  }
   saveState();
   logActivity(id, state[id].status, "quiz");
 
   if(pass) paperConfetti();
+
+  const lockedNote = (!pass && state[id].quizLocked)
+    ? `<div class="msg" style="margin-top:6px;">Two attempts without a pass \u2014 quiz locked until Summary and Flashcards are reviewed again.</div>`
+    : "";
 
   document.getElementById("modalBody").innerHTML = `
     <div class="quiz-result">
       <div class="mascot-result">${catFace(pass?"#2F80C4":"#E0994F", pass?"happy":"content", 70)}</div>
       <div class="score">${correct}/${quiz.length}</div>
       <div class="msg">${pass? "Purr-fect \u2014 marked as covered." : "Marked as needs work \u2014 worth another look."}</div>
-      <button class="primary" onclick="retakeQuiz()">Retake quiz</button>
+      ${lockedNote}
+      <button class="primary" onclick="retakeQuiz()">${state[id].quizLocked?'OK':'Retake quiz'}</button>
       <button onclick="closeModal()">Done</button>
     </div>
   `;
@@ -1400,6 +1473,19 @@ function retakeQuiz(){
 }
 
 function renderExamTab(){
+  const id = modalItem.id;
+  const gate = examGate(id);
+  if(gate.blocked){
+    const goToFlash = `<button class="primary" onclick="switchModalTab('flash')">Go to Flashcards</button>`;
+    const goToNotes = `<button class="primary" onclick="switchModalTab('summary')">Go to Summary</button>`;
+    const msg = gate.reason==="flash"
+      ? `<p>Review the flashcards for this topic first \u2014 the exam question unlocks once you've been through all of them.</p>${goToFlash}`
+      : `<p>Two attempts without a pass \u2014 the exam question is locked until you've reviewed both the Summary notes and the Flashcards again.</p>
+         ${!state[id].notesSeen?goToNotes:""}
+         ${!state[id].flashSeen?goToFlash:""}`;
+    document.getElementById("modalBody").innerHTML = `<div class="quiz-locked">${msg}</div>`;
+    return;
+  }
   const eq = modalContent.examQuestion;
   if(!eq){ document.getElementById("modalBody").innerHTML = "<p>No exam-style question available.</p>"; return; }
   const points = eq.markPoints||[];
@@ -1452,17 +1538,33 @@ function saveExamMark(){
   const pass = pct>=80;
   const id = modalItem.id;
   state[id].status = pass?1:2;
+
+  if(pass){
+    state[id].examFailStreak = 0;
+  }else{
+    state[id].examFailStreak = (state[id].examFailStreak||0) + 1;
+    if(state[id].examFailStreak >= 2){
+      state[id].examLocked = true;
+      state[id].flashSeen = false;
+      state[id].notesSeen = false;
+    }
+  }
   saveState();
   logActivity(id, state[id].status, "written");
 
   if(pass) paperConfetti();
+
+  const lockedNote = (!pass && state[id].examLocked)
+    ? `<div class="msg" style="margin-top:6px;">Two attempts without a pass \u2014 exam question locked until Summary and Flashcards are reviewed again.</div>`
+    : "";
 
   document.getElementById("modalBody").innerHTML = `
     <div class="quiz-result">
       <div class="mascot-result">${catFace(pass?"#2F80C4":"#E0994F", pass?"happy":"content", 70)}</div>
       <div class="score">${gained}/${total}</div>
       <div class="msg">${pass? "Purr-fect \u2014 marked as covered." : "Marked as needs work \u2014 worth another look."}</div>
-      <button class="primary" onclick="retakeExam()">Try again</button>
+      ${lockedNote}
+      <button class="primary" onclick="retakeExam()">${state[id].examLocked?'OK':'Try again'}</button>
       <button onclick="closeModal()">Done</button>
     </div>
   `;
